@@ -1,12 +1,14 @@
-# MemBrain-Seg
+# MemBrain-Pick
 
+Membrane protein picking. Work in Progress.
+<!-- 
 [![License](https://img.shields.io/pypi/l/membrain-seg.svg?color=green)](https://github.com/teamtomo/membrain-seg/raw/main/LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/membrain-seg.svg?color=green)](https://pypi.org/project/membrain-seg)
 [![Python Version](https://img.shields.io/pypi/pyversions/membrain-seg.svg?color=green)](https://python.org)
 [![CI](https://github.com/teamtomo/membrain-seg/actions/workflows/ci.yml/badge.svg)](https://github.com/teamtomo/membrain-seg/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/teamtomo/membrain-seg/branch/main/graph/badge.svg)](https://codecov.io/gh/teamtomo/membrain-seg)
+[![codecov](https://codecov.io/gh/teamtomo/membrain-seg/branch/main/graph/badge.svg)](https://codecov.io/gh/teamtomo/membrain-seg) -->
 
-
+<!-- 
 Membrain-Seg is a Python project developed by [teamtomo](https://github.com/teamtomo) for membrane segmentation in 3D for cryo-electron tomography (cryo-ET). This tool aims to provide researchers with an efficient and reliable method for segmenting membranes in 3D microscopic images. Membrain-Seg is currently under early development, so we may make breaking changes between releases.
 
 <p align="center" width="100%">
@@ -62,4 +64,4 @@ It is also possible to use this package to train your own model. Instructions ca
 
 ## Patch annotations
 In case you would like to train a model that works better for your tomograms, it may be beneficial to add some more patches from your tomograms to the training dataset. 
-Recommendations on how to to this can be found [here](./docs/Usage/Annotations.md).
+Recommendations on how to to this can be found [here](./docs/Usage/Annotations.md). -->
