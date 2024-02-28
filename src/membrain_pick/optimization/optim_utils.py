@@ -10,7 +10,8 @@ def save_checkpoint(model, optimizer, epoch, loss, checkpoint_dir='checkpoints',
         'epoch': epoch,
         'model_state_dict': model.state_dict(),
         'optimizer_state_dict': optimizer.state_dict(),
-        'loss': loss
+        'loss': loss,
+        'model_config': model.get_config()
     }
     
     # Define the checkpoint file path
