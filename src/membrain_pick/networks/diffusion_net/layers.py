@@ -10,6 +10,7 @@ import scipy.sparse.linalg as sla
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from .utils import toNP
 from .geometry import to_basis, from_basis
@@ -34,13 +35,13 @@ class LearnedTimeDiffusion(nn.Module):
       - (V,C) diffused values 
     """
 
-    def __init__(self, C_inout, method='spectral', fixed_time=None):
+    def __init__(self, C_inout, method='spectral', fixed_time=None, shared_time=False):
         super(LearnedTimeDiffusion, self).__init__()
         self.C_inout = C_inout
         self.diffusion_time = nn.Parameter(torch.Tensor(C_inout))  # (C)
         self.method = method # one of ['spectral', 'implicit_dense']
         self.fixed_time = fixed_time
-
+        self.shared_time = shared_time
 
         nn.init.constant_(self.diffusion_time, 0.0)
         
@@ -64,6 +65,8 @@ class LearnedTimeDiffusion(nn.Module):
             # Diffuse
             if self.fixed_time is not None:
                 time = torch.ones_like(self.diffusion_time) * self.fixed_time
+            elif self.shared_time:
+                time = self.diffusion_time.mean()
             else:
                 time = self.diffusion_time
             diffusion_coefs = torch.exp(-evals.unsqueeze(-1) * time.unsqueeze(0))
@@ -170,6 +173,95 @@ class MiniMLP(nn.Sequential):
                 )
 
 
+class SeparableDiffusionNetBlock(nn.Module):
+    """
+    Inputs and outputs are defined at vertices
+    """
+
+    def __init__(self, C_in, C_width, conv_hidden_dims,
+                 dropout=True, 
+                 diffusion_method='spectral',
+                 with_gradient_features=True, 
+                 with_gradient_rotations=True,
+                 fixed_time=None,
+                 ):
+        super(SeparableDiffusionNetBlock, self).__init__()
+
+        # Specified dimensions
+        self.C_width = C_width
+        self.C_in = C_in
+        self.conv_hidden_dims = conv_hidden_dims
+
+        self.dropout = dropout
+        self.with_gradient_features = with_gradient_features
+        self.with_gradient_rotations = with_gradient_rotations
+
+        # Diffusion block
+        self.diffusion = LearnedTimeDiffusion(self.C_in, method=diffusion_method, fixed_time=fixed_time, shared_time=True)
+
+        self.Conv_C_in = (3 if self.with_gradient_features else 2)
+        self.Conv_C_width = self.C_width
+
+
+        if self.with_gradient_features:
+            self.gradient_features = SpatialGradientFeatures(self.C_in, with_gradient_rotations=self.with_gradient_rotations)
+
+        # Convolutional layers
+        self.conv_layer1 = nn.Conv1d(self.Conv_C_in, self.Conv_C_width, kernel_size=3, padding=1)
+        self.conv_layer2 = nn.Conv1d(self.Conv_C_width, self.C_width, kernel_size=3, padding=1)
+
+
+
+
+    def forward(self, x_in, mass, L, evals, evecs, gradX, gradY):
+        # Manage dimensions
+        B = x_in.shape[0]
+
+        # Diffusion block
+        x_diffuse = self.diffusion(x_in, L, mass, evals, evecs)
+        
+        # Compute gradient features, if using
+        if self.with_gradient_features:
+                
+                # Compute gradients
+                x_grads = [] # Manually loop over the batch (if there is a batch dimension) since torch.mm() doesn't support batching
+                for b in range(B):
+                    # gradient after diffusion
+                    x_gradX = torch.mm(gradX[b,...], x_diffuse[b,...])
+                    x_gradY = torch.mm(gradY[b,...], x_diffuse[b,...])
+
+                    x_grads.append(torch.stack((x_gradX, x_gradY), dim=-1))
+                x_grad = torch.stack(x_grads, dim=0)
+
+                # Evaluate gradient features
+                x_grad_features = self.gradient_features(x_grad)
+
+                # Stack inputs to mlp
+                feature_combined = torch.stack((x_in, x_diffuse, x_grad_features), dim=-1)
+
+        else:
+            # Stack inputs to mlp
+            feature_combined = torch.stack((x_in, x_diffuse), dim=-1)
+        
+        feature_combined = feature_combined.reshape(-1, self.C_in, self.Conv_C_in)
+        feature_combined = feature_combined.permute(0, 2, 1)
+        
+        # Apply the conv layers
+        x0_out = self.conv_layer1(feature_combined)
+        x0_out = F.relu(x0_out)
+        x0_out = F.max_pool1d(x0_out, kernel_size=2, stride=2)
+        x0_out = self.conv_layer2(x0_out)
+        x0_out = F.relu(x0_out)
+        x0_out = F.max_pool1d(x0_out, kernel_size=2, stride=2)
+
+        x_out = x0_out.reshape(1, x_in.shape[1], -1)
+
+        return x_out
+        
+
+
+
+
 class DiffusionNetBlock(nn.Module):
     """
     Inputs and outputs are defined at vertices
@@ -196,6 +288,7 @@ class DiffusionNetBlock(nn.Module):
         self.diffusion = LearnedTimeDiffusion(self.C_width, method=diffusion_method, fixed_time=fixed_time)
         
         self.MLP_C = 2*self.C_width
+
       
         if self.with_gradient_features:
             self.gradient_features = SpatialGradientFeatures(self.C_width, with_gradient_rotations=self.with_gradient_rotations)
@@ -206,7 +299,6 @@ class DiffusionNetBlock(nn.Module):
 
 
     def forward(self, x_in, mass, L, evals, evecs, gradX, gradY):
-
         # Manage dimensions
         B = x_in.shape[0] # batch dimension
         if x_in.shape[-1] != self.C_width:
@@ -239,7 +331,6 @@ class DiffusionNetBlock(nn.Module):
             # Stack inputs to mlp
             feature_combined = torch.cat((x_in, x_diffuse), dim=-1)
 
-        
         # Apply the mlp
         x0_out = self.mlp(feature_combined)
 
@@ -268,7 +359,7 @@ class DiffusionNet(nn.Module):
 
     def __init__(self, C_in, C_out, C_width=128, N_block=4, last_activation=None, outputs_at='vertices', mlp_hidden_dims=None, dropout=True, 
                        with_gradient_features=True, with_gradient_rotations=True, diffusion_method='spectral', lstm_first=False, mean_shift_clustering=False, ms_bandwidth=0.1, device="cuda:0",
-                       fixed_time=None):   
+                       fixed_time=None, one_D_conv_first=False):   
         """
         Construct a DiffusionNet.
 
@@ -297,6 +388,8 @@ class DiffusionNet(nn.Module):
         self.C_width = C_width
         self.N_block = N_block
         self.lstm_first = lstm_first
+        self.fixed_time = fixed_time
+        self.one_D_conv_first = one_D_conv_first
 
         self.device = device
 
@@ -323,6 +416,19 @@ class DiffusionNet(nn.Module):
         if lstm_first:
             self.lstm = nn.LSTM(input_size=C_in, hidden_size=C_width, batch_first=True, num_layers=1)
             self.first_lin = nn.Linear(C_width, C_width)
+        elif one_D_conv_first:
+            # self.first_conv = nn.Conv1d(1, 32, kernel_size=3, padding=0)
+            # self.second_conv = nn.Conv1d(32, 4, kernel_size=3, padding=0)
+            self.conv_block_out_dim = C_width * (C_in // 4)
+            self.conv_block = SeparableDiffusionNetBlock(C_in=self.C_in,
+                                    C_width = C_width,
+                                      conv_hidden_dims = mlp_hidden_dims,
+                                      dropout = dropout,
+                                      diffusion_method = diffusion_method,
+                                      with_gradient_features = with_gradient_features, 
+                                      with_gradient_rotations = with_gradient_rotations,
+                                      fixed_time=fixed_time,)
+            self.first_lin = nn.Linear(self.conv_block_out_dim, C_width)
         else:
             # First and last affine layers
             self.first_lin = nn.Linear(C_in, C_width)
@@ -350,11 +456,33 @@ class DiffusionNet(nn.Module):
                 num_seeds=100,
                 max_iter=10,
                 margin=2.,
-                device=self.device
+                device=self.device,
             )
 
     
-    def forward(self, x_in, mass, L=None, evals=None, evecs=None, gradX=None, gradY=None, edges=None, faces=None):
+    def get_config(self):
+        return {
+            'C_in': self.C_in,
+            'C_out': self.C_out,
+            'C_width': self.C_width,
+            'N_block': self.N_block,
+            'last_activation': self.last_activation,
+            'outputs_at': self.outputs_at,
+            'mlp_hidden_dims': self.mlp_hidden_dims,
+            'dropout': self.dropout,
+            'diffusion_method': self.diffusion_method,
+            'with_gradient_features': self.with_gradient_features,
+            'with_gradient_rotations': self.with_gradient_rotations,
+            'lstm_first': self.lstm_first,
+            'mean_shift_clustering': self.mean_shift_clustering,
+            'ms_bandwidth': self.ms_module.bandwidth if self.mean_shift_clustering else None,  # Assuming bandwidth can be accessed this way
+            'device': self.device,
+            'fixed_time': self.fixed_time,
+            'one_D_conv_first': self.one_D_conv_first
+        }
+
+
+    def forward(self, x_in, mass, L=None, evals=None, evecs=None, gradX=None, gradY=None, edges=None, faces=None, verts=None):
         """
         A forward pass on the DiffusionNet.
 
@@ -404,10 +532,14 @@ class DiffusionNet(nn.Module):
             appended_batch_dim = False
         
         else: raise ValueError("x_in should be tensor with shape [N,C] or [B,N,C]")
+
         
         # Apply the first linear layer
         if self.lstm_first:
             x, _ = self.lstm(x_in)
+            x = self.first_lin(x)
+        elif self.one_D_conv_first:
+            x = self.conv_block(x_in, mass, L, evals, evecs, gradX, gradY)
             x = self.first_lin(x)
         else:
             x = self.first_lin(x_in)
@@ -451,7 +583,9 @@ class DiffusionNet(nn.Module):
         if appended_batch_dim:
             x_out = x_out.squeeze(0)
 
-        if self.mean_shift_clustering:
-            x_out_ms, _, _ = self.ms_module.mean_shift_forward(x_in.squeeze()[:, :3], torch.nn.functional.sigmoid(x_out.squeeze()))
-            return x_out, x_out_ms
+        # if self.mean_shift_clustering:
+        #     assert verts is not None
+        #     x_out_ms, _, _ = self.ms_module.mean_shift_forward(verts.squeeze(), torch.abs(x_out.squeeze()))
+
+        #     return x_out, x_out_ms
         return x_out
