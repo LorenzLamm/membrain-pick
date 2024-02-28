@@ -50,11 +50,252 @@ def exclude_faces_from_candidates(face_list: np.ndarray, candidates: np.ndarray,
 
 
 
+def get_adjacent_triangles(faces, edge_to_face_map, triangle_index):
+        triangle = faces[triangle_index]
+        adjacent_triangles = set()
+
+        for i in range(3):
+            edge = tuple(sorted((triangle[i], triangle[(i+1) % 3])))
+            for face_index in edge_to_face_map.get(edge, []):
+                if face_index != triangle_index:
+                    adjacent_triangles.add(face_index)
+
+        return list(adjacent_triangles)
+
+def build_edge_to_face_map(faces):
+        edge_to_face = {}
+        for i, face in enumerate(faces):
+            edges = [(face[j], face[(j+1) % 3]) for j in range(3)]
+            for edge in edges:
+                edge = tuple(sorted(edge))  # Ensure the edge tuple is in a consistent order
+                if edge not in edge_to_face:
+                    edge_to_face[edge] = []
+                edge_to_face[edge].append(i)
+        return edge_to_face
+
+def find_adjacent_faces(faces, mb_idx: int, start_face: int, edge_to_face_map: dict, max_sampled_points: int):
+        """
+        Finds all faces adjacent to the specified face.
+
+        Parameters
+        ----------
+        mb_idx : int
+            Index of the membrane to be sampled.
+        start_face : int
+            Index of the face to start the search from.
+
+        Returns
+        -------
+        np.ndarray
+            Indices of the adjacent faces.
+        """
+        back_1_weight = 0.0
+        back_2_weight = 0.125
+        back_3_weight = 0.250
+
+        faces = faces[mb_idx]
+        
+        cur_faces = [start_face]
+        cur_faces_weights = {start_face: back_1_weight}
+
+        faces_back_1 = []
+        faces_back_2 = []
+        faces_back_3 = []
+        while len(cur_faces) < max_sampled_points:
+            prev_len = len(cur_faces)
+            for face in cur_faces:
+                
+                # add_faces = find_faces_sharing_vertices(faces, faces[face])
+                add_faces = get_adjacent_triangles(faces, edge_to_face_map, face)
+                cur_faces.extend(add_faces)
+                cur_faces = list(np.unique(cur_faces))
+                
+                if len(cur_faces) >= max_sampled_points:
+                    break
+
+            back_1_mask = np.isin(cur_faces, faces_back_1)
+            back_2_mask = np.isin(cur_faces, faces_back_2)
+            back_3_mask = np.isin(cur_faces, faces_back_3)
+
+            cur_faces = np.array(cur_faces)
+            cur_faces_weights = {face: back_1_weight for face in cur_faces}
+            cur_faces_weights.update({face: back_2_weight for face in cur_faces[back_1_mask]})
+            cur_faces_weights.update({face: back_3_weight for face in cur_faces[back_2_mask]})
+            cur_faces_weights.update({face: 1.0 for face in cur_faces[back_3_mask]})
+            cur_faces = list(cur_faces)
+
+            faces_back_3 = faces_back_3 + faces_back_2
+            faces_back_2 = faces_back_1
+            faces_back_1 = cur_faces
 
 
 
+            new_len = len(cur_faces)
+            if new_len == prev_len:
+                print("No new faces added, breaking.")
+                break
+        cur_faces = np.unique(cur_faces)
+        cur_faces_weights[start_face] = 1.0
+        weights = np.array([cur_faces_weights[face] for face in cur_faces])
+        return cur_faces, weights
 
 
+def get_partition_from_face_list(self, 
+                                 membranes: np.ndarray,
+                                 faces: np.ndarray, 
+                                 labels: np.ndarray,
+                                 vert_normals: np.ndarray,
+                                 gt_pos: np.ndarray,
+                                 mb_idx: int, face_list: np.ndarray, face_weight_list: np.ndarray, max_tomo_shape: int):
+        """
+        Returns the partitioning of the membrane into patches based on a list of faces.
+
+        Parameters
+        ----------
+        mb_idx : int
+            Index of the membrane to be sampled.
+        face_list : np.ndarray
+            List of faces to be used for partitioning.
+        face_weight_list : np.ndarray
+            List of weights for the faces.
+
+        Returns
+        -------
+        np.ndarray
+            Indices of the patches.
+        """
+        mb = membranes[mb_idx]
+        faces = faces[mb_idx]
+        labels = labels[mb_idx]
+        vert_normals = vert_normals[mb_idx]
+
+        face_verts = faces[face_list]
+        face_verts = face_verts.reshape(-1)
+        vert_weights = np.repeat(face_weight_list, 3)
+        vert_weights = vert_weights.reshape(-1)
+        
+        unique_weights = np.unique(vert_weights)
+        vert_weight_dict = {}
+        for weight in unique_weights:
+            for vert in face_verts[vert_weights == weight]:
+                vert_weight_dict[vert] = weight
+
+        face_verts = np.unique(face_verts)
+
+        mb_verts = mb[face_verts]
+        mb_faces = faces[face_list]
+        mb_labels = labels[face_verts]
+        mb_normals = vert_normals[face_verts]
+        mb_vert_weights = np.array([vert_weight_dict[vert] for vert in face_verts])
+
+        # Find close GT positions
+        gt_pos = gt_pos[mb_idx]
+        nn_dists, _ = compute_nearest_distances(gt_pos, mb_verts[:, :3])
+        gt_mask = nn_dists < 3. / max_tomo_shape
+        part_gts = gt_pos[gt_mask]
+
+        # Create a mapping from old vertex indices to new indices
+        unique_vertex_indices = np.unique(face_verts)
+        index_mapping = {old_idx: new_idx for new_idx, old_idx in enumerate(unique_vertex_indices)}
+
+        # Update the faces to refer to the new vertex indices
+        mb_faces_updated = np.vectorize(index_mapping.get)(mb_faces)
+        # return mb, mb_labels, mb_faces
+
+        # return mb, labels, faces
+        return mb_verts, mb_labels, mb_faces_updated, mb_normals, part_gts, mb_vert_weights
+    
+
+
+def _precompute_partitioning(
+        membranes: np.ndarray,
+        faces: np.ndarray,
+        max_sampled_points: int,
+        overfit: bool,
+        overfit_mb: bool,
+        cache_dir: str=None,
+        force_recompute: bool=False
+):
+        """
+        Precomputes the partitioning of the membranes into patches.
+
+        If already done in another run, load it from the cache. Otherwise, compute it,
+        store it in the cache and load it.
+        """
+        part_verts = []
+        part_labels = []
+        part_faces = []
+        part_normals = []
+        part_mb_idx = []
+        part_gt_pos = []
+        part_vert_weights = []
+
+        
+        for mb_idx, mb in enumerate(membranes):
+            # encode both membrane data and self.load_only_sampled_points
+            mb_cache_hash = get_array_hash(mb)
+            sampled_points_cache_hash = str(hash(max_sampled_points))
+            overfit_cache_hash = str(hash(overfit))
+            if cache_dir is not None:
+                cache_path = os.path.join(cache_dir, mb_cache_hash + "_" + sampled_points_cache_hash + "_" + overfit_cache_hash + ".npz")
+                cur_cache_path = cache_path[:-4] + "_partnr0.npz"
+            cache_found = False
+            print(f"Loading partitioning for membrane {mb_idx} from cache.")
+            cur_cache_count = 0
+            
+
+            while cache_dir is not None and os.path.isfile(cur_cache_path) and not force_recompute:
+                # Append loaded data to the lists
+                cache = np.load(cur_cache_path)
+                part_verts.append(cache[f"part_verts"])
+                part_labels.append(cache[f"part_labels"])
+                part_faces.append(cache[f"part_faces"])
+                part_normals.append(cache[f"part_normals"])
+                part_mb_idx.append(mb_idx)
+                part_gt_pos.append(cache[f"part_gt_pos"])
+                part_vert_weights.append(cache[f"part_vert_weights"])
+                print("Appending data from", cur_cache_path, "to partitioning.")
+                cur_cache_path = cache_path[:-4] + "_partnr" + str(cur_cache_count) + ".npz"
+                cur_cache_count += 1
+                cache_found = True
+                if overfit and cur_cache_count > 3:
+                    break
+
+            if not cache_found:
+                edge_to_face_map = build_edge_to_face_map(self.faces[mb_idx])
+                face_candidates = np.arange(faces[mb_idx].shape[0])
+
+                print("Precomputing partitioning for membrane", mb_idx, "with", face_candidates.shape[0], "faces.")
+                part_counter = 0
+                while face_candidates.shape[0] > 0:
+                    cur_cache_path = cache_path[:-4] + "_partnr" + str(part_counter) + ".npz"
+                    face_start = face_candidates[0]
+                    print("Starting from face", face_start, "with", face_candidates.shape[0], "faces left.")
+                    adj_faces, adj_faces_weights = find_adjacent_faces(faces, mb_idx, face_start, edge_to_face_map, max_sampled_points)
+                    part_verts, part_labels, part_faces, part_normals, part_gts, part_vert_weights = get_partition_from_face_list(mb_idx, adj_faces, adj_faces_weights)
+                    part_verts.append(part_verts)
+                    part_labels.append(part_labels)
+                    part_faces.append(part_faces)
+                    part_normals.append(part_normals)
+                    part_mb_idx.append(mb_idx)
+                    part_gt_pos.append(part_gts) 
+                    part_vert_weights.append(part_vert_weights)
+                    face_candidates = exclude_faces_from_candidates(adj_faces, face_candidates, adj_faces_weights)
+                    if self.overfit and part_counter > 2:
+                        break
+                    print("Saving partitioning for membrane", mb_idx, "to cache.", "with", len(self.part_verts), "patches.")
+                    print("Cache file:", cur_cache_path)
+                    np.savez(cur_cache_path,
+                    **{f"part_verts": part_verts,
+                        f"part_labels": part_labels,
+                        f"part_faces": part_faces,
+                        f"part_normals": part_normals,
+                        f"part_vert_weights": part_vert_weights,
+                        f"part_gt_pos": part_gts})
+                    part_counter += 1
+            if overfit_mb:
+                break
+        return part_verts, part_labels, part_faces, part_normals, part_mb_idx, part_gt_pos, part_vert_weights
 
 
 
@@ -213,7 +454,19 @@ class MemSegDiffusionNetDataset(Dataset):
         self.load_data()
 
         if self.load_only_sampled_points is not None:
-            self._precompute_partitioning()
+            # self._precompute_partitioning()
+            
+            self.part_verts, self.part_labels, self.part_faces, \
+                self.part_normals, self.part_mb_idx, self.part_gt_pos, \
+                self.part_vert_weights = _precompute_partitioning(
+                        membranes=self.membranes,
+                        faces=self.faces,
+                        max_sampled_points=self.load_only_sampled_points,
+                        overfit=self.overfit,
+                        overfit_mb=self.overfit_mb,
+                        cache_dir=self.cache_dir,
+                        force_recompute=self.force_recompute
+            )
 
         self.transforms = (
             get_training_transforms(self.max_tomo_shape) if self.train else get_test_transforms()
@@ -270,264 +523,6 @@ class MemSegDiffusionNetDataset(Dataset):
 
         return idx_dict
     
-
-    def _precompute_partitioning(self):
-        """
-        Precomputes the partitioning of the membranes into patches.
-
-        If already done in another run, load it from the cache. Otherwise, compute it,
-        store it in the cache and load it.
-        """
-        self.part_verts = []
-        self.part_labels = []
-        self.part_faces = []
-        self.part_normals = []
-        self.part_mb_idx = []
-        self.part_gt_pos = []
-        self.part_vert_weights = []
-
-        
-        for mb_idx, mb in enumerate(self.membranes):
-            # encode both membrane data and self.load_only_sampled_points
-            mb_cache_hash = get_array_hash(mb)
-            sampled_points_cache_hash = str(hash(self.load_only_sampled_points))
-            overfit_cache_hash = str(hash(self.overfit))
-            cache_path = os.path.join(self.cache_dir, mb_cache_hash + "_" + sampled_points_cache_hash + "_" + overfit_cache_hash + ".npz")
-
-            cache_found = False
-            print(f"Loading partitioning for membrane {mb_idx} from cache.")
-            cur_cache_count = 0
-            cur_cache_path = cache_path[:-4] + "_partnr0.npz"
-
-            while os.path.isfile(cur_cache_path) and not self.force_recompute:
-                # Append loaded data to the lists
-                cache = np.load(cur_cache_path)
-                self.part_verts.append(cache[f"part_verts"])
-                self.part_labels.append(cache[f"part_labels"])
-                self.part_faces.append(cache[f"part_faces"])
-                self.part_normals.append(cache[f"part_normals"])
-                self.part_mb_idx.append(mb_idx)
-                self.part_gt_pos.append(cache[f"part_gt_pos"])
-                self.part_vert_weights.append(cache[f"part_vert_weights"])
-                print("Appending data from", cur_cache_path, "to partitioning.")
-                cur_cache_path = cache_path[:-4] + "_partnr" + str(cur_cache_count) + ".npz"
-                cur_cache_count += 1
-                cache_found = True
-                if self.overfit and cur_cache_count > 3:
-                    break
-
-            if not cache_found:
-                
-                def build_edge_to_face_map(faces):
-                    edge_to_face = {}
-                    for i, face in enumerate(faces):
-                        edges = [(face[j], face[(j+1) % 3]) for j in range(3)]
-                        for edge in edges:
-                            edge = tuple(sorted(edge))  # Ensure the edge tuple is in a consistent order
-                            if edge not in edge_to_face:
-                                edge_to_face[edge] = []
-                            edge_to_face[edge].append(i)
-                    return edge_to_face
-
-                from time import time
-                time_zero = time()
-                self.edge_to_face_map = build_edge_to_face_map(self.faces[mb_idx])
-                face_candidates = np.arange(self.faces[mb_idx].shape[0])
-                print("Precomputing partitioning for membrane", mb_idx, "with", face_candidates.shape[0], "faces.")
-                part_counter = 0
-                while face_candidates.shape[0] > 0:
-                    cur_cache_path = cache_path[:-4] + "_partnr" + str(part_counter) + ".npz"
-                    face_start = face_candidates[0]
-                    print("Starting from face", face_start, "with", face_candidates.shape[0], "faces left.")
-                    adj_faces, adj_faces_weights = self.find_adjacent_faces(mb_idx, face_start)
-                    part_verts, part_labels, part_faces, part_normals, part_gts, part_vert_weights = self.get_partition_from_face_list(mb_idx, adj_faces, adj_faces_weights)
-                    self.part_verts.append(part_verts)
-                    self.part_labels.append(part_labels)
-                    self.part_faces.append(part_faces)
-                    self.part_normals.append(part_normals)
-                    self.part_mb_idx.append(mb_idx)
-                    self.part_gt_pos.append(part_gts) 
-                    self.part_vert_weights.append(part_vert_weights)
-                    face_candidates = exclude_faces_from_candidates(adj_faces, face_candidates, adj_faces_weights)
-                    if self.overfit and part_counter > 2:
-                        break
-                    print("Saving partitioning for membrane", mb_idx, "to cache.", "with", len(self.part_verts), "patches.")
-                    print("Cache file:", cur_cache_path)
-                    np.savez(cur_cache_path,
-                    **{f"part_verts": part_verts,
-                        f"part_labels": part_labels,
-                        f"part_faces": part_faces,
-                        f"part_normals": part_normals,
-                        f"part_vert_weights": part_vert_weights,
-                        f"part_gt_pos": part_gts})
-                    part_counter += 1
-            if self.overfit_mb:
-                break
-
-
-    # def exclude_faces_from_candidates(self, face_list: np.ndarray, candidates: np.ndarray, faces_weights: np.ndarray):
-    #     """
-    #     Excludes faces from a list of candidates.
-
-    #     Parameters
-    #     ----------
-    #     mb_idx : int
-    #         Index of the membrane to be sampled.
-    #     face_list : np.ndarray
-    #         List of faces to be excluded.
-    #     candidates : np.ndarray
-    #         List of candidates to be filtered.
-    #     faces_weights : np.ndarray
-    #         List of weights for the faces.
-
-    #     Returns
-    #     -------
-    #     np.ndarray
-    #         Filtered list of candidates.
-    #     """
-
-    #     mask = np.isin(candidates, np.array(face_list)[faces_weights == 1.0])
-    #     return candidates[~mask]
-
-
-    def get_partition_from_face_list(self, mb_idx: int, face_list: np.ndarray, face_weight_list: np.ndarray):
-        """
-        Returns the partitioning of the membrane into patches based on a list of faces.
-
-        Parameters
-        ----------
-        mb_idx : int
-            Index of the membrane to be sampled.
-        face_list : np.ndarray
-            List of faces to be used for partitioning.
-        face_weight_list : np.ndarray
-            List of weights for the faces.
-
-        Returns
-        -------
-        np.ndarray
-            Indices of the patches.
-        """
-        mb = self.membranes[mb_idx]
-        faces = self.faces[mb_idx]
-        labels = self.labels[mb_idx]
-        vert_normals = self.vert_normals[mb_idx]
-
-        face_verts = faces[face_list]
-        face_verts = face_verts.reshape(-1)
-        vert_weights = np.repeat(face_weight_list, 3)
-        vert_weights = vert_weights.reshape(-1)
-        
-        unique_weights = np.unique(vert_weights)
-        vert_weight_dict = {}
-        for weight in unique_weights:
-            for vert in face_verts[vert_weights == weight]:
-                vert_weight_dict[vert] = weight
-
-        face_verts = np.unique(face_verts)
-
-        mb_verts = mb[face_verts]
-        mb_faces = faces[face_list]
-        mb_labels = labels[face_verts]
-        mb_normals = vert_normals[face_verts]
-        mb_vert_weights = np.array([vert_weight_dict[vert] for vert in face_verts])
-
-        # Find close GT positions
-        gt_pos = self.gt_pos[mb_idx]
-        nn_dists, _ = compute_nearest_distances(gt_pos, mb_verts[:, :3])
-        gt_mask = nn_dists < 3. / self.max_tomo_shape
-        part_gts = gt_pos[gt_mask]
-
-
-        # Create a mapping from old vertex indices to new indices
-        unique_vertex_indices = np.unique(face_verts)
-        index_mapping = {old_idx: new_idx for new_idx, old_idx in enumerate(unique_vertex_indices)}
-
-        # Update the faces to refer to the new vertex indices
-        mb_faces_updated = np.vectorize(index_mapping.get)(mb_faces)
-        # return mb, mb_labels, mb_faces
-
-        # return mb, labels, faces
-        return mb_verts, mb_labels, mb_faces_updated, mb_normals, part_gts, mb_vert_weights
-    
-    def get_adjacent_triangles(self, faces, edge_to_face_map, triangle_index):
-        triangle = faces[triangle_index]
-        adjacent_triangles = set()
-
-        for i in range(3):
-            edge = tuple(sorted((triangle[i], triangle[(i+1) % 3])))
-            for face_index in edge_to_face_map.get(edge, []):
-                if face_index != triangle_index:
-                    adjacent_triangles.add(face_index)
-
-        return list(adjacent_triangles)
-
-    def find_adjacent_faces(self, mb_idx: int, start_face: int):
-        """
-        Finds all faces adjacent to the specified face.
-
-        Parameters
-        ----------
-        mb_idx : int
-            Index of the membrane to be sampled.
-        start_face : int
-            Index of the face to start the search from.
-
-        Returns
-        -------
-        np.ndarray
-            Indices of the adjacent faces.
-        """
-        back_1_weight = 0.0
-        back_2_weight = 0.125
-        back_3_weight = 0.250
-
-        faces = self.faces[mb_idx]
-        
-        cur_faces = [start_face]
-        cur_faces_weights = {start_face: back_1_weight}
-
-        faces_back_1 = []
-        faces_back_2 = []
-        faces_back_3 = []
-        while len(cur_faces) < self.load_only_sampled_points:
-            prev_len = len(cur_faces)
-            for face in cur_faces:
-                
-                # add_faces = find_faces_sharing_vertices(faces, faces[face])
-                add_faces = self.get_adjacent_triangles(faces, self.edge_to_face_map, face)
-                cur_faces.extend(add_faces)
-                cur_faces = list(np.unique(cur_faces))
-                
-                if len(cur_faces) >= self.load_only_sampled_points:
-                    break
-
-            back_1_mask = np.isin(cur_faces, faces_back_1)
-            back_2_mask = np.isin(cur_faces, faces_back_2)
-            back_3_mask = np.isin(cur_faces, faces_back_3)
-
-            cur_faces = np.array(cur_faces)
-            cur_faces_weights = {face: back_1_weight for face in cur_faces}
-            cur_faces_weights.update({face: back_2_weight for face in cur_faces[back_1_mask]})
-            cur_faces_weights.update({face: back_3_weight for face in cur_faces[back_2_mask]})
-            cur_faces_weights.update({face: 1.0 for face in cur_faces[back_3_mask]})
-            cur_faces = list(cur_faces)
-
-            faces_back_3 = faces_back_3 + faces_back_2
-            faces_back_2 = faces_back_1
-            faces_back_1 = cur_faces
-
-
-
-            new_len = len(cur_faces)
-            if new_len == prev_len:
-                print("No new faces added, breaking.")
-                break
-        cur_faces = np.unique(cur_faces)
-        cur_faces_weights[start_face] = 1.0
-        weights = np.array([cur_faces_weights[face] for face in cur_faces])
-        return cur_faces, weights
-
 
     def __len__(self) -> int:
         """
@@ -633,5 +628,11 @@ class MemSegDiffusionNetDataset(Dataset):
                 out_file=os.path.join(out_dir, "test%d_%d.png" % (idx, k)),
                 point_cloud=idx_dict["membrane"][0, :, :3],
                 color=idx_dict["membrane"][0, :, 7],
+                s=150
+            )
+            make_2D_projection_scatter_plot(
+                out_file=os.path.join(out_dir, "test%d_%d_lab.png" % (idx, k)),
+                point_cloud=idx_dict["membrane"][0, :, :3],
+                color=idx_dict["label"][0, :],
                 s=150
             )
