@@ -56,6 +56,7 @@ def make_2D_projection_scatter_plot(out_file, point_cloud, color=None, s=7.5):
     projected_points = project_points_to_plane(point_cloud)
     plt.figure()
     plt.scatter(projected_points[:, 0], projected_points[:, 1], s=s, c=color, cmap="gray")
+    plt.colorbar()
     plt.savefig(out_file)
 
 
