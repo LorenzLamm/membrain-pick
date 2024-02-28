@@ -15,6 +15,64 @@ from scipy.spatial import cKDTree
 from scipy.spatial import KDTree
 from collections import defaultdict
 import hashlib
+from membrain_pick.dataloading.pointcloud_augmentations import get_test_transforms, get_training_transforms
+
+
+
+
+
+
+################# Precomputation section ########################
+
+def exclude_faces_from_candidates(face_list: np.ndarray, candidates: np.ndarray, faces_weights: np.ndarray):
+        """
+        Excludes faces from a list of candidates.
+
+        Parameters
+        ----------
+        mb_idx : int
+            Index of the membrane to be sampled.
+        face_list : np.ndarray
+            List of faces to be excluded.
+        candidates : np.ndarray
+            List of candidates to be filtered.
+        faces_weights : np.ndarray
+            List of weights for the faces.
+
+        Returns
+        -------
+        np.ndarray
+            Filtered list of candidates.
+        """
+
+        mask = np.isin(candidates, np.array(face_list)[faces_weights == 1.0])
+        return candidates[~mask]
+
+
+
+
+
+
+
+
+
+
+
+
+######################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -29,184 +87,6 @@ def get_array_hash(array):
     hasher = hashlib.sha256()
     hasher.update(array_bytes)
     return hasher.hexdigest()
-
-def brightness_transform(features, add_const):
-    """Apply a brightness transform to the features of a point cloud."""
-    return features + add_const
-
-
-def apply_gradient_to_pointcloud(point_cloud, features, scale, loc=(-1, 2), strength=1.0, mean_centered=True):
-    # Select a reference point for the "gradient center"
-    # This example randomly selects a point within the bounding box defined by loc
-    bounds_min, bounds_max = point_cloud.min(axis=0), point_cloud.max(axis=0)
-    reference_point = np.array([np.random.uniform(bounds_min[i] + loc[0] * (bounds_max[i] - bounds_min[i]), 
-                                                  bounds_min[i] + loc[1] * (bounds_max[i] - bounds_min[i])) for i in range(3)])
-    
-    # Calculate distances from each point to the reference point
-    distances = np.linalg.norm(point_cloud - reference_point, axis=1)
-    
-    # Determine the gradient scale based on distances using a Gaussian-like formula
-    # Adapt the scale and max_strength dynamically if needed
-    gradient_values = np.exp(-0.5 * (distances / scale)**2)
-    
-    if mean_centered:
-        gradient_values -= gradient_values.mean()
-    
-    max_gradient_val = max(np.max(np.abs(gradient_values)), 1e-8)
-    gradient_values = gradient_values / max_gradient_val * strength
-    
-    # Apply the gradient to the feature
-    modified_features = features + np.expand_dims(gradient_values, 1)
-    
-    return modified_features
-
-
-def apply_random_contrast_to_pointcloud(features, contrast_factor, preserve_range=False):
-    """
-    Apply a random contrast transformation to a feature of a point cloud.
-
-    :param features: N-length NumPy array of feature values for the point cloud.
-    :param contrast_range: Tuple (min, max) specifying the range for the random contrast scaling factor.
-    :param preserve_range: Boolean indicating whether to preserve the original feature value range.
-    :param prob: Probability with which to apply the contrast adjustment.
-    :return: The modified features.
-    """
-
-    # Apply the contrast transformation
-    mean = np.mean(features)
-    if preserve_range:
-        minval, maxval = features.min(), features.max()
-    features = mean + contrast_factor * (features - mean)
-    if preserve_range:
-        features = np.clip(features, minval, maxval)
-
-    return features
-
-
-def adjust_contrast_point_cloud(features, gamma):
-    """
-    Adjust the gamma of point cloud features using gamma correction.
-
-    Args:
-        features (np.ndarray): The feature values of the point cloud.
-        gamma (float): The gamma value for contrast adjustment.
-
-    Returns:
-        np.ndarray: The features after contrast adjustment.
-    """
-    minval, maxval = features.min(), features.max()
-    features = ((features - minval) / (maxval - minval)) ** gamma * (maxval - minval) + minval
-    return features
-
-
-def adjust_contrast_inversion_stats_point_cloud(features, gamma):
-    """
-    Adjust the contrast of point cloud features with inversion and stats preservation.
-
-    Args:
-        features (np.ndarray): The feature values of the point cloud.
-        gamma (float): The gamma value for contrast adjustment.
-
-    Returns:
-        np.ndarray: The features after adjustment, inversion, and stats preservation.
-    """
-    original_mean = features.mean()
-    original_std = features.std()
-    
-    # Adjust contrast
-    minval, maxval = features.min(), features.max()
-    adjusted_features = ((features - minval) / (maxval - minval)) ** gamma * (maxval - minval) + minval
-    
-    # Preserve original mean and standard deviation, then invert
-    adjusted_mean = adjusted_features.mean()
-    adjusted_std = adjusted_features.std()
-    adjusted_features = (adjusted_features - adjusted_mean) / adjusted_std * original_std + original_mean
-    adjusted_features *= -1  # Inversion
-    
-    return adjusted_features
-
-
-def apply_local_gamma_to_pointcloud(point_cloud, features, scale=1.0, loc=(-.5, 1.5), gamma_range=(0.7, 1.4)):
-    # Determine the bounds for the reference point selection
-    bounds_min, bounds_max = point_cloud.min(axis=0), point_cloud.max(axis=0)
-    reference_point = np.array([np.random.uniform(bounds_min[i] + loc[0] * (bounds_max[i] - bounds_min[i]), 
-                                                  bounds_min[i] + loc[1] * (bounds_max[i] - bounds_min[i])) for i in range(3)])
-    
-    # Calculate distances from each point to the reference point
-    distances = np.linalg.norm(point_cloud - reference_point, axis=1)
-    weights = np.exp(-0.5 * (distances / scale)**2)
-    
-    # Generate a spatially varying gamma value based on distances
-    # Simulate a Gaussian distribution for gamma values centered around the reference point
-    # Note: This is a conceptual adaptation; adjust the distribution as needed
-    normalized_distances = (distances - distances.min()) / (distances.max() - distances.min())
-    gamma_values = gamma_range[0] + (gamma_range[1] - gamma_range[0]) * np.exp(-0.5 * (normalized_distances / scale)**2)
-    
-    # Apply gamma correction to each point's feature
-    mn, mx = features.min(), features.max()
-    normalized_features = (features - mn) / (mx - mn)
-    modified_features = np.zeros_like(features)
-    
-    for i, gamma in enumerate(gamma_values):
-        modified_features[i] = np.power(normalized_features[i], gamma)
-    
-    # Rescale modified features back to original range
-    modified_features = modified_features * (mx - mn) + mn
-    
-    # interpolate based on weights
-    modified_features = modified_features * np.expand_dims(weights, 1) + features * np.expand_dims(1 - weights, 1)
-    
-    return modified_features
-
-
-def gaussian_weight(distance, sigma_squared):
-    """Compute Gaussian weight using precomputed sigma squared."""
-    return np.exp(-distance**2 / sigma_squared)
-
-def smooth_feature_optimized(point_cloud, features, tree, radius=0.1, sigma=1.0):
-    """Optimized feature smoothing for a point cloud."""
-    sigma_squared = 2 * sigma**2
-    smoothed_features = np.zeros_like(features)
-    for i, point in enumerate(point_cloud):
-        indices = tree.query_ball_point(point, r=radius)
-        if not indices:
-            continue
-        
-        distances = np.linalg.norm(point_cloud[indices] - point, axis=1)
-        weights = gaussian_weight(distances, sigma_squared)
-        weighted_features = features[indices] * np.expand_dims(weights, axis=1)
-        smoothed_features[i] = np.sum(weighted_features, axis=0) / np.sum(weights)
-    return smoothed_features
-
-def apply_median_filter(point_cloud, features, tree, radius=0.1):
-    """Apply a median filter to the features of a point cloud."""
-    filtered_features = np.zeros_like(features)
-    for i, point in enumerate(point_cloud):
-        # Find indices of neighbors within the specified radius
-        indices = tree.query_ball_point(point, r=radius)
-        if not indices:
-            continue
-        
-        # Extract the features of these neighbors
-        neighbor_features = features[indices]
-        
-        # Calculate the median of the features
-        filtered_features[i] = np.median(neighbor_features)
-    
-    return filtered_features
-
-
-def random_erase(point_cloud, features, tree, patch_radius=0.1, num_patches=1):
-    """Randomly erases points from a point cloud."""
-    erased_features = features.copy()
-    for _ in range(num_patches):
-        center_idx = np.random.randint(point_cloud.shape[0])
-        center_point = point_cloud[center_idx]
-        indices = tree.query_ball_point(center_point, r=patch_radius)
-        if not indices:
-            continue
-        erased_features[indices] = 0
-    return erased_features
 
 
 def find_faces_sharing_vertices(mesh_faces, initial_face):
@@ -335,60 +215,14 @@ class MemSegDiffusionNetDataset(Dataset):
         if self.load_only_sampled_points is not None:
             self._precompute_partitioning()
 
-        self.patch_dicts = [None] * len(self)
-        self._define_augment_params()
+        self.transforms = (
+            get_training_transforms(self.max_tomo_shape) if self.train else get_test_transforms()
+        )
+        if self.train:
+            self.kdtrees = [KDTree(mb[:, :3]) for mb in (self.membranes if self.load_only_sampled_points is None else self.part_verts)]
+        else:
+            self.kdtrees = [None] * len(self)
         
-    def _define_augment_params(self):
-        """
-        Defines the parameters for augmentation.
-        """
-        # Gaussian noise
-        self.noise_probability = .6
-        self.noise_range = (0.0, 0.25)
-
-        # Gaussian smoothing
-        self.smoothing_probability = .6
-        self.kdtrees = [KDTree(mb[:, :3]) for mb in (self.membranes if self.load_only_sampled_points is None else self.part_verts)]
-        self.smoothing_radius_max = 4. / self.max_tomo_shape
-        self.smoothing_sigma_max = 2.5 / self.max_tomo_shape
-        self.smoothing_radius_min = 1. / self.max_tomo_shape
-        self.smoothing_sigma_min = 0.
-
-        # Median filter
-        self.median_filter_probability = .6
-        self.median_filter_radius_max = 2. / self.max_tomo_shape
-
-        # Random erasing
-        self.erase_probability = .6
-        self.erase_radius_max = 5.5 / self.max_tomo_shape
-        self.erase_radius_min = 1.5 / self.max_tomo_shape
-        self.erase_patches_max = 5
-
-        # Brightness transform
-        self.brighness_probability = .6
-        self.brightness_range = (-0.5, 0.5)
-
-        # Brightness gradient
-        self.brightness_gradient_probability = .6
-        self.max_brightness_gradient_strength = .8
-        self.brightness_gradient_scale_max = 200. / self.max_tomo_shape
-
-        # Local brightness gamma
-        self.local_brightness_gamma_probability = .6
-        self.local_brightness_gamma_scale_max = 30. / self.max_tomo_shape
-
-        # Contrast
-        self.contrast_probability = .5
-        self.contrast_range = (0.5, 2.)
-
-        # Contrast with stats inversion
-        self.contrast_with_stats_inversion_probability = .5
-
-
-
-
-
-
 
     def __getitem__(self, idx: int) -> Dict[str, np.ndarray]:
         """
@@ -406,294 +240,36 @@ class MemSegDiffusionNetDataset(Dataset):
         """
         if self.load_only_sampled_points is not None:
             idx_dict = {
-                "membrane": np.expand_dims(self.part_verts[idx], 0),
-                "label": np.expand_dims(self.part_labels[idx], 0),
-                "faces": np.expand_dims(self.part_faces[idx], 0),
-                "normals": np.expand_dims(self.part_normals[idx], 0),
+                "membrane": self.part_verts[idx].copy(),
+                "label": self.part_labels[idx],
+                "faces": self.part_faces[idx],
+                "normals": self.part_normals[idx],
                 "mb_idx": self.part_mb_idx[idx],
                 "gt_pos": self.part_gt_pos[idx],
-                "vert_weights": np.expand_dims(self.part_vert_weights[idx], 0)
+                "vert_weights": self.part_vert_weights[idx]
             }
             
             # mb_idx = idx // (self.membranes[0].shape[0] // self.load_only_sampled_points)
             # idx_dict = self.select_random_mb_area(mb_idx, idx, self.load_only_sampled_points)
         else:
             idx_dict = {
-                "membrane": np.expand_dims(self.membranes[idx], 0),
-                "label": np.expand_dims(self.labels[idx], 0),
-                "faces": np.expand_dims(self.faces[idx], 0),
-                "normals": np.expand_dims(self.vert_normals[idx], 0),
+                "membrane": self.membranes[idx].copy(),
+                "label": self.labels[idx],
+                "faces": self.faces[idx],
+                "normals": self.vert_normals[idx],
                 "mb_idx": idx,
                 "gt_pos": self.gt_pos[idx],
-                "vert_weights": np.expand_dims(np.ones(self.membranes[idx].shape[0]), 0)
+                "vert_weights": np.ones(self.membranes[idx].shape[0])
             }
-        
-        idx_dict = self._augment_sample(idx_dict, idx)
+        idx_dict = self.transforms(idx_dict, keys=["membrane"], mb_tree=self.kdtrees[idx])
+
+        for key in idx_dict:
+            if key in ["membrane", "label", "faces", "normals", "vert_weights"]:
+                idx_dict[key] = np.expand_dims(idx_dict[key], 0)
+        # idx_dict = self._augment_sample(idx_dict, idx)
 
         return idx_dict
     
-    def _augment_sample(self, idx_dict: Dict[str, np.ndarray], idx: int) -> Dict[str, np.ndarray]:
-        """
-        Augments a sample by adding noise to the membrane.
-
-        Parameters
-        ----------
-        idx_dict : Dict[str, np.ndarray]
-            Dictionary containing the membrane to be augmented.
-
-        Returns
-        -------
-        Dict[str, np.ndarray]
-            Dictionary containing the augmented membrane.
-        """
-        global normalize_features_count, augment_noise_count, gaussian_smoothing_count, median_filter_count, random_erase_count, brightness_transform_count, brightness_gradient_count, local_brightness_gamma_count, contrast_count, contrast_with_stats_inversion_count
-        if self.normalize_features:
-            idx_dict["membrane"][:, :, 3:] = (idx_dict["membrane"][:, :, 3:] - idx_dict["membrane"][:, :, 3:].mean()) / idx_dict["membrane"][:, :, 3:].std()
-
-        if np.random.rand() < (0.5 if self.gaussian_smoothing and self.median_filter else 1.0 if self.gaussian_smoothing else 0.0):
-            if self.gaussian_smoothing and np.random.rand() < self.smoothing_probability:
-                idx_dict["membrane"] = self._augment_gaussian_smoothing(idx_dict["membrane"].copy(), 
-                                                                        self.kdtrees[idx])
-        else:
-            if self.median_filter and self.median_filter_probability and np.random.rand() < self.median_filter_probability:
-                idx_dict["membrane"] = self._augment_median_filter(idx_dict["membrane"].copy(), 
-                                                                self.kdtrees[idx])
-
-        if self.augment_noise and np.random.rand() < self.noise_probability:
-            idx_dict["membrane"] = self._augment_noise(idx_dict["membrane"].copy())
-
-        if self.brighness_transform and np.random.rand() < self.brighness_probability:
-            idx_dict["membrane"] = self._augment_brightness(idx_dict["membrane"].copy())
-
-        if self.contrast and np.random.rand() < self.contrast_probability:
-            idx_dict["membrane"] = self._augment_contrast(idx_dict["membrane"].copy())
-
-        if self.contrast_with_stats_inversion and np.random.rand() < self.contrast_with_stats_inversion_probability:
-            idx_dict["membrane"] = self._augment_contrast_with_stats_inversion(idx_dict["membrane"].copy())
-
-        if self.random_erase and np.random.rand() < self.erase_probability:
-            idx_dict["membrane"] = self._augment_random_erase(idx_dict["membrane"].copy(), 
-                                                              self.kdtrees[idx])
-
-        if self.brightness_gradient and np.random.rand() < self.brightness_gradient_probability:
-            idx_dict["membrane"] = self._augment_brightness_gradient(idx_dict["membrane"].copy())
-
-        if self.local_brightness_gamma and np.random.rand() < self.local_brightness_gamma_probability:
-            idx_dict["membrane"] = self._augment_local_brightness_gamma(idx_dict["membrane"].copy())
-
-        return idx_dict
-    
-
-    def _augment_brightness(self, membrane: np.ndarray) -> np.ndarray:
-        """
-        Adds brightness to the membrane.
-
-        Parameters
-        ----------
-        membrane : np.ndarray
-            The membrane to be augmented.
-
-        Returns
-        -------
-        np.ndarray
-            The augmented membrane.
-        """
-        if membrane.shape[0] == 1:
-            membrane = membrane[0]
-        brightness = np.random.uniform(*self.brightness_range)
-        membrane[:, 3:] = brightness_transform(membrane[:, 3:], brightness)
-        membrane = np.expand_dims(membrane, 0)
-        return membrane
-    
-    def _augment_brightness_gradient(self, membrane: np.ndarray) -> np.ndarray:
-        """
-        Adds brightness gradient to the membrane.
-
-        Parameters
-        ----------
-        membrane : np.ndarray
-            The membrane to be augmented.
-
-        Returns
-        -------
-        np.ndarray
-            The augmented membrane.
-        """
-        if membrane.shape[0] == 1:
-            membrane = membrane[0]
-        strength = np.random.uniform(-self.max_brightness_gradient_strength, self.max_brightness_gradient_strength)
-        brightness_gradient_scale = np.random.uniform(0, self.brightness_gradient_scale_max)
-        membrane[:, 3:] = apply_gradient_to_pointcloud(membrane[:, :3], membrane[:, 3:], scale=brightness_gradient_scale, strength=strength)
-        membrane = np.expand_dims(membrane, 0)
-        return membrane
-    
-    def _augment_local_brightness_gamma(self, membrane: np.ndarray) -> np.ndarray:
-        """
-        Adds brightness gamma to the membrane.
-
-        Parameters
-        ----------
-        membrane : np.ndarray
-            The membrane to be augmented.
-
-        Returns
-        -------
-        np.ndarray
-            The augmented membrane.
-        """
-        if membrane.shape[0] == 1:
-            membrane = membrane[0]
-        scale = np.random.uniform(0, self.local_brightness_gamma_scale_max)
-        membrane[:, 3:] = apply_local_gamma_to_pointcloud(membrane[:, :3], membrane[:, 3:], scale=scale)
-        membrane = np.expand_dims(membrane, 0)
-        return membrane
-    
-    def _augment_contrast(self, membrane: np.ndarray) -> np.ndarray:
-        """
-        Adds contrast to the membrane.
-
-        Parameters
-        ----------
-        membrane : np.ndarray
-            The membrane to be augmented.
-
-        Returns
-        -------
-        np.ndarray
-            The augmented membrane.
-        """
-        if membrane.shape[0] == 1:
-            membrane = membrane[0]
-        contrast_factor = np.random.uniform(*self.contrast_range)
-        preserve_range = np.random.random() < 0.5
-        membrane[:, 3:] = apply_random_contrast_to_pointcloud(membrane[:, 3:], contrast_factor, preserve_range=preserve_range)
-        membrane = np.expand_dims(membrane, 0)
-        return membrane
-
-    def _augment_contrast_with_stats_inversion(self, membrane: np.ndarray) -> np.ndarray:
-        """
-        Adds contrast to the membrane with stats inversion.
-
-        Parameters
-        ----------
-        membrane : np.ndarray
-            The membrane to be augmented.
-
-        Returns
-        -------
-        np.ndarray
-            The augmented membrane.
-        """
-        if membrane.shape[0] == 1:
-            membrane = membrane[0]
-
-        # Apply contrast adjustment with inversion and stats preservation (2x)
-        gamma = np.random.uniform(*self.contrast_range)
-        membrane[:, 3:] = adjust_contrast_inversion_stats_point_cloud(membrane[:, 3:], gamma)
-        gamma = np.random.uniform(*self.contrast_range)
-        membrane[:, 3:] = adjust_contrast_inversion_stats_point_cloud(membrane[:, 3:], gamma)
-        
-        membrane = np.expand_dims(membrane, 0)
-        return membrane
-
-    def _augment_noise(self, membrane: np.ndarray) -> np.ndarray:
-        """
-        Adds noise to the membrane and label.
-
-        Parameters
-        ----------
-        membrane : np.ndarray
-            The membrane to be augmented.
-
-        Returns
-        -------
-        np.ndarray
-            The augmented membrane.
-        """
-        if membrane.shape[0] == 1:
-            membrane = membrane[0]
-        noise_std = np.random.uniform(*self.noise_range)
-        noise = np.random.normal(loc=0.0, scale=noise_std, size=membrane[:, 3:].shape)
-        membrane[:, 3:] += noise
-        membrane = np.expand_dims(membrane, 0)
-        return membrane
-    
-    def _augment_gaussian_smoothing(self, membrane: np.ndarray, mb_tree: KDTree) -> np.ndarray:
-        """
-        Adds Gaussian smoothing to the membrane.
-
-        Parameters
-        ----------
-        membrane : np.ndarray
-            The membrane to be augmented.
-
-        Returns
-        -------
-        np.ndarray
-            The augmented membrane.
-        """
-        if membrane.shape[0] == 1:
-            membrane = membrane[0]
-
-        smoothing_radius = np.random.uniform(self.smoothing_radius_min, self.smoothing_radius_max)
-        smoothing_sigma = np.random.uniform(self.smoothing_sigma_min, self.smoothing_sigma_max)
-        membrane[:, 3:] = smooth_feature_optimized(membrane[:, :3], 
-                                            membrane[:, 3:], 
-                                            tree=mb_tree, 
-                                            radius=smoothing_radius, 
-                                            sigma=smoothing_sigma)
-        membrane = np.expand_dims(membrane, 0)
-        return membrane
-    
-    def _augment_median_filter(self, membrane: np.ndarray, mb_tree: KDTree) -> np.ndarray:
-        """
-        Adds a median filter to the membrane.
-
-        Parameters
-        ----------
-        membrane : np.ndarray
-            The membrane to be augmented.
-
-        Returns
-        -------
-        np.ndarray
-            The augmented membrane.
-        """
-        if membrane.shape[0] == 1:
-            membrane = membrane[0]
-        filter_radius = np.random.uniform(0, self.median_filter_radius_max)
-        membrane[:, 3:] = apply_median_filter(membrane[:, :3], 
-                                              membrane[:, 3:], 
-                                              tree=mb_tree, 
-                                              radius=filter_radius)
-        membrane = np.expand_dims(membrane, 0)
-        return membrane
-    
-    def _augment_random_erase(self, membrane: np.ndarray, mb_tree: KDTree) -> np.ndarray:
-        """
-        Adds random erasing to the membrane.
-
-        Parameters
-        ----------
-        membrane : np.ndarray
-            The membrane to be augmented.
-
-        Returns
-        -------
-        np.ndarray
-            The augmented membrane.
-        """
-        if membrane.shape[0] == 1:
-            membrane = membrane[0]
-        num_patches = np.random.randint(1, self.erase_patches_max)
-        patch_radius = np.random.uniform(self.erase_radius_min, self.erase_radius_max)
-        membrane[:, 3:] = random_erase(membrane[:, :3], 
-                                       membrane[:, 3:],
-                                       mb_tree, 
-                                       patch_radius=patch_radius, 
-                                       num_patches=num_patches)
-        membrane = np.expand_dims(membrane, 0)
-        return membrane
 
     def _precompute_partitioning(self):
         """
@@ -772,7 +348,7 @@ class MemSegDiffusionNetDataset(Dataset):
                     self.part_mb_idx.append(mb_idx)
                     self.part_gt_pos.append(part_gts) 
                     self.part_vert_weights.append(part_vert_weights)
-                    face_candidates = self.exclude_faces_from_candidates(adj_faces, face_candidates, adj_faces_weights)
+                    face_candidates = exclude_faces_from_candidates(adj_faces, face_candidates, adj_faces_weights)
                     if self.overfit and part_counter > 2:
                         break
                     print("Saving partitioning for membrane", mb_idx, "to cache.", "with", len(self.part_verts), "patches.")
@@ -789,30 +365,29 @@ class MemSegDiffusionNetDataset(Dataset):
                 break
 
 
+    # def exclude_faces_from_candidates(self, face_list: np.ndarray, candidates: np.ndarray, faces_weights: np.ndarray):
+    #     """
+    #     Excludes faces from a list of candidates.
 
-    def exclude_faces_from_candidates(self, face_list: np.ndarray, candidates: np.ndarray, faces_weights: np.ndarray):
-        """
-        Excludes faces from a list of candidates.
+    #     Parameters
+    #     ----------
+    #     mb_idx : int
+    #         Index of the membrane to be sampled.
+    #     face_list : np.ndarray
+    #         List of faces to be excluded.
+    #     candidates : np.ndarray
+    #         List of candidates to be filtered.
+    #     faces_weights : np.ndarray
+    #         List of weights for the faces.
 
-        Parameters
-        ----------
-        mb_idx : int
-            Index of the membrane to be sampled.
-        face_list : np.ndarray
-            List of faces to be excluded.
-        candidates : np.ndarray
-            List of candidates to be filtered.
-        faces_weights : np.ndarray
-            List of weights for the faces.
+    #     Returns
+    #     -------
+    #     np.ndarray
+    #         Filtered list of candidates.
+    #     """
 
-        Returns
-        -------
-        np.ndarray
-            Filtered list of candidates.
-        """
-
-        mask = np.isin(candidates, np.array(face_list)[faces_weights == 1.0])
-        return candidates[~mask]
+    #     mask = np.isin(candidates, np.array(face_list)[faces_weights == 1.0])
+    #     return candidates[~mask]
 
 
     def get_partition_from_face_list(self, mb_idx: int, face_list: np.ndarray, face_weight_list: np.ndarray):
@@ -874,24 +449,7 @@ class MemSegDiffusionNetDataset(Dataset):
 
         # return mb, labels, faces
         return mb_verts, mb_labels, mb_faces_updated, mb_normals, part_gts, mb_vert_weights
-
-
-    def find_adjacent_faces_v2(self, mb_idx: int, start_face: int):
-        faces = self.faces[mb_idx]
-
-        cur_faces = set([start_face])
-        while len(cur_faces) < self.load_only_sampled_points:
-            new_faces = set()
-            for face in cur_faces:
-                add_faces = set(find_faces_sharing_vertices(faces, faces[face]))
-                new_faces.update(add_faces)
-            cur_faces.update(new_faces)
-            if len(cur_faces) >= self.load_only_sampled_points:
-                break
-
-        return np.array(list(cur_faces))
     
-
     def get_adjacent_triangles(self, faces, edge_to_face_map, triangle_index):
         triangle = faces[triangle_index]
         adjacent_triangles = set()
@@ -1058,6 +616,7 @@ class MemSegDiffusionNetDataset(Dataset):
         else:
             self.data_paths = self.data_paths[int(len(self.data_paths) * self.train_pct):]
 
+
     def test_loading(self, out_dir, idx: int, times=1) -> None:
         """
         Tests the loading of a data-label pair.
@@ -1067,42 +626,12 @@ class MemSegDiffusionNetDataset(Dataset):
         idx : int
             Index of the sample to be loaded.
         """
-
+        from membrain_pick.optimization.plane_projection import make_2D_projection_scatter_plot
         for k in range(times):
             idx_dict = self.__getitem__(idx)
-            points = idx_dict["membrane"][0]
-            labels = idx_dict["label"][0]
-            faces = idx_dict["faces"][0]
-
-            # store_point_and_vectors_in_vtp(
-            #     out_path=os.path.join(out_dir, "test%d_%d.vtp" % (idx, k)),
-            #     in_points=points[:, :3],
-            #     in_scalars=[points[:, i] for i in range(4, points.shape[1])] + [labels]
-            # )
-        # create_and_store_mesh(faces, points[:, :3], os.path.join(out_dir, "test%d_mesh.vtp" % idx))
-
-
-def create_and_store_mesh(mesh_faces, mesh_verts, out_path):
-    """
-    Creates a mesh from the specified faces and vertices and stores it in the specified path.
-
-    Parameters
-    ----------
-    mesh_faces : np.ndarray
-        Array of faces in the mesh, shape (N, 3).
-    mesh_verts : np.ndarray
-        Array of vertices in the mesh, shape (M, 3).
-    out_path : str
-        Path to store the mesh in.
-    """
-    # Use pyvista to create a mesh from the faces and vertices
-    print("HI")
-
-    # from membrain_pick.mesh_class import Mesh
-
-    # mesh = Mesh(mesh_verts, mesh_faces)
-    # mesh.store_in_file(out_path)
-    mesh_faces = np.concatenate((np.ones((mesh_faces.shape[0], 1), dtype=int)*3, mesh_faces), axis=1)
-    mesh = pv.PolyData(mesh_verts, mesh_faces)
-    # print("s")
-    mesh.save(out_path)
+            make_2D_projection_scatter_plot(
+                out_file=os.path.join(out_dir, "test%d_%d.png" % (idx, k)),
+                point_cloud=idx_dict["membrane"][0, :, :3],
+                color=idx_dict["membrane"][0, :, 7],
+                s=150
+            )
