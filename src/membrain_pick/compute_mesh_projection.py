@@ -10,6 +10,8 @@ import pyacvd
 
 from scipy.ndimage import map_coordinates
 
+import trimesh
+
 
 # def bspline_orig(t):
 #     t = abs(t)
@@ -88,39 +90,63 @@ def bspline(x, y, z):
     return result
 
 
-
-def get_tomo_values_along_normal(point, normal, tomo, b_splines=True):
+def get_tomo_values_along_normal(point, normal, tomo, b_splines=True, steps=(-6, 7), step_size=0.25):
     values = []
-    for add in range(-6, 7):
+    for add in range(steps[0], steps[1]):
         if not b_splines:
             idx = point + add * normal
             idx = np.round(idx).astype(int)
             tomo_val = tomo[idx[0], idx[1], idx[2]]
         else:
-            tomo_val = vectorized_cubicTex3DSimple(tomo, point + 0.25*add*normal, texSize=0.1)
+            tomo_val = vectorized_cubicTex3DSimple(tomo, point + step_size*add*normal, texSize=0.1)
             # tomo_val_compare = cubicTex3DSimple(tomo, point + 0.4*add*normal, texSize=0.1)
         values.append(tomo_val)
     values = np.stack(values, axis=0)
     return values
 
 
-def compute_values_along_normals(mesh, tomo, b_splines=True):
+def compute_values_along_normals(mesh, tomo, b_splines=True, steps=(-6, 7), step_size=0.25, verts=None, normals=None):
     # Get vertices and triangle combinations
-    verts = mesh.points
-    normals = mesh.point_normals
+    if verts is None:
+        verts = mesh.points
+    if normals is None:
+        normals = mesh.point_normals
 
     normal_values = []
     time_zero = time()
     for i in range(len(verts)):
-        if i % 100 == 0:
+        if i % 5000 == 0:
             print(i, "/", len(verts), time() - time_zero)
-        norm_vals = get_tomo_values_along_normal(verts[i], normals[i], tomo, b_splines=b_splines)
+        norm_vals = get_tomo_values_along_normal(verts[i], normals[i], tomo, b_splines=b_splines, steps=steps, step_size=step_size)
         normal_values.append(norm_vals)
     normal_values = np.stack(normal_values, axis=0)
     return normal_values
 
 
-def convert_seg_to_evenly_spaced_mesh(seg, smoothing=2000, barycentric_area=10):
+def correct_normals(mesh):
+    vertices = mesh.points
+    faces = mesh.faces.reshape((-1, 4))[:, 1:4]  # Reshape faces and remove the leading count
+
+    # Create a trimesh mesh using the vertices and faces from PyVista
+    mesh_trimesh = trimesh.Trimesh(vertices=vertices, faces=faces)
+
+    broken = trimesh.repair.broken_faces(mesh_trimesh, color=None)
+
+    # Repair the mesh
+    trimesh.repair.fill_holes(mesh_trimesh)
+
+    # Repair the mesh
+    trimesh.repair.fix_inversion(mesh_trimesh, multibody=True)
+
+    # Now you can use trimesh's functionalities
+    trimesh.repair.fix_normals(mesh_trimesh, multibody=True)
+
+    # If you want to convert it back to PyVista mesh after manipulation
+    mesh = pv.PolyData(mesh_trimesh.vertices, np.hstack([np.full((mesh_trimesh.faces.shape[0], 1), 3, dtype=int), mesh_trimesh.faces]))
+
+    return mesh
+
+def convert_seg_to_evenly_spaced_mesh(seg, smoothing=2000, barycentric_area=10, normals_correction=False):
     mesh = convert_seg_to_mesh(seg=seg,
                         smoothing=smoothing,
                         voxel_size=1.0)
@@ -131,6 +157,8 @@ def convert_seg_to_evenly_spaced_mesh(seg, smoothing=2000, barycentric_area=10):
     clus.subdivide(3)
     clus.cluster(cluster_points)
     remesh = clus.create_mesh()
+    if normals_correction:
+        remesh = correct_normals(remesh)
     return remesh
 
 
