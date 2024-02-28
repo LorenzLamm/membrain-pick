@@ -6,11 +6,15 @@ class MeanShift_loss(torch.nn.Module):
         super(MeanShift_loss, self).__init__()
         self.use_loss = use_loss
 
-    def forward(self, true_pos, pred_pos, dummy=None):
+    def forward(self, true_pos, pred_pos, dummy=None, print_flag=False):
         
         dists = torch.cdist(true_pos.float(), pred_pos.float())
         mins, _ = torch.min(dists, dim=1)
         mins_seeds, _ = torch.min(dists, dim=0)
+        
+        for pos in true_pos:
+            if print_flag:
+                print(pos, pred_pos[torch.argmin(torch.cdist(pos.unsqueeze(0), pred_pos))], "true_pos and pred_pos")
         loss = torch.mean(mins) #+ .5 * torch.max(mins)
         # loss = 0.
         # loss = torch.max(mins)
@@ -18,8 +22,11 @@ class MeanShift_loss(torch.nn.Module):
         # loss_seeds = torch.max(mins_seeds)
         # return 0., mins_seeds
         just_in_case_losses = (loss, loss_seeds)
+        if print_flag:
+            print(loss, loss_seeds, "losses")
         if not self.use_loss:
             return 0., mins_seeds, just_in_case_losses
+        # return loss_seeds, mins_seeds, just_in_case_losses
         return loss + loss_seeds, mins_seeds, just_in_case_losses
 
 class MeanShift_loss_directional(torch.nn.Module):

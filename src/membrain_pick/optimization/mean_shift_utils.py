@@ -8,9 +8,10 @@ import scipy
 from scipy.spatial import KDTree
 from sklearn.neighbors import KDTree
 from time import time
+from sklearn.cluster import DBSCAN
 
 class MeanShiftForwarder():
-    def __init__(self, bandwidth, num_seeds, max_iter, device, margin=2.,):
+    def __init__(self, bandwidth, num_seeds, max_iter, device, margin=2.):
         self.bandwidth = bandwidth
         self.num_seeds = num_seeds
         self.max_iter = max_iter
@@ -34,12 +35,20 @@ class MeanShiftForwarder():
         # dists shape: [128, 2704] = [128, 52*52]
         nn_weights = nn_weights.reshape(1, -1) # [1, 2704]
         thr = bandwidth
-        max = torch.tensor(1.0).double().to(self.device)
-        min = torch.tensor(0.0).double().to(self.device)
+
+        # normalize dists
+        dist_norm = (thr - dist) 
+
+        max = torch.tensor(1.0).float().to(self.device)
+        min = torch.tensor(0.0).float().to(self.device)
         # dist = torch.from_numpy(dist).to(self.device)
-        dis = torch.where(dist < thr, max, min)
+        # dis = torch.where(dist < thr, max, min)
+        # print(torch.sum(dis), "<--", dist.shape[0]*dist.shape[1])
+        dis = torch.where(dist < thr, dist_norm, min)
         dis = dis.to(self.device)
+        
         nn_weights = nn_weights.to(self.device)
+        nn_weights = torch.clamp(10. - nn_weights, 1e-2, 10)
         dis *= (nn_weights + 0.05) # +0.05 as a regularization. Otherwise, most values will be close to zero!
         dis = normalize(dis, dim=1, p=2)
         return dis
@@ -57,6 +66,7 @@ class MeanShiftForwarder():
             S_weights = num
             S = num / (weight.sum(1)[:, None] + 1e-6 * min(1., self.bandwidth))
             iter += 1
+            print(torch.norm(S - S_old, dim=1).mean(), "<--", stop_thresh, iter, self.max_iter)
             if (torch.norm(S - S_old, dim=1).mean() < stop_thresh or iter >= self.max_iter):
                 break
 
@@ -148,20 +158,57 @@ class MeanShiftForwarder():
         coordinate_grid = torch.reshape(coordinate_grid, (-1, (2 if len(shape) == 4 else 3)))
         return coordinate_grid
 
-    def mean_shift_forward(self, x, weights):
-        # coords = self.initialize_coords(x)
-        means = []
-        # print(coords.shape)
-        coords = x
-        # exit()
+    def cleanup_cluster_centers(self, centers, threshold=0.5):
+        # Compute pairwise Euclidean distances between centers
+        dist_matrix = np.sqrt(((centers[:, np.newaxis, :] - centers[np.newaxis, :, :]) ** 2).sum(axis=2))
+        
+        # Identify clusters that are within the threshold
+        close_pairs = np.where((dist_matrix > 0) & (dist_matrix < threshold))
+        
+        # Use a set to keep track of indices already considered for merging
+        merged_indices = set()
+        new_centers = []
+        
+        for i, j in zip(close_pairs[0], close_pairs[1]):
+            if i not in merged_indices and j not in merged_indices:
+                # Average positions of the two centers
+                new_center = (centers[i] + centers[j]) / 2
+                new_centers.append(new_center)
+                
+                # Mark these indices as merged
+                merged_indices.add(i)
+                merged_indices.add(j)
+        
+        # Add remaining centers not close to any other
+        for i, center in enumerate(centers):
+            if i not in merged_indices:
+                new_centers.append(center)
+        
+        return np.array(new_centers)
+    
+    def clean_cluster_centers_dbscan(self, centers, eps):
+        # Apply DBSCAN to group centers
+        clustering = DBSCAN(eps=eps, min_samples=5).fit(centers)
+        unique_labels = set(clustering.labels_)
+        
+        new_centers = []
+        for label in unique_labels:
+            # Find all points belonging to the same cluster
+            indices = np.where(clustering.labels_ == label)[0]
+            cluster_points = centers[indices]
+            
+            # Compute the average position for the cluster
+            new_center = np.mean(cluster_points, axis=0)
+            new_centers.append(new_center)
+        
+        return np.array(new_centers)
 
+
+    def mean_shift_forward(self, x, weights):
+        coords = x.clone()
         seeds = x
         mean, p_num, mean_weights = self.mean_shift_for_seeds(coords.squeeze(), weights.squeeze(), seeds.squeeze())
-
-        # Aggregate close-to duplicates with torch pn GPU
-
-        
-
-
-
+        print("Number of clusters:", len(mean))
+        mean = self.clean_cluster_centers_dbscan(mean.cpu().numpy(), eps=0.5)
+        print("Number of clusters after cleanup:", len(mean))
         return mean, p_num, mean_weights
