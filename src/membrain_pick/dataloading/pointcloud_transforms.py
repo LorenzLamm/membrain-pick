@@ -390,52 +390,52 @@ def test():
 
     list_of_augmentations = [
         NormalizeFeatures(),
-        # AnyAugmentation(
-        #     RandomGaussianSmoothing(
-        #         apply_prob=(1.0 if prob_to_one else 0.5), 
-        #         smoothing_radius_range=(1.0 / 928, 5. / 928), 
-        #         smoothing_sigma_range=(0., 3. / 928)
-        #         ),
-        #     RandomMedianSmoothing(
-        #             apply_prob=(1.0 if prob_to_one else 0.5),
-        #             smoothing_radius_range=(1. / 928, 2. / 928)
-        #         ),
-        #     ),
-        # RandomSmoothPointFeatures(
-        #     apply_prob=(1.0 if prob_to_one else 0.5),
-        #     smoothing_range=(1., 7.),
-        #     smoothing_sigma_range=(1.5, 5.)
-        # ),
-        # RandomFeatureDropout(
-        #         apply_prob=(1.0 if prob_to_one else 0.5),
-        #         dropout_prob_range=(0., 0.15)
-        #     ),
-        # RandomFeatureNoise(
-        #         apply_prob=(1.0 if prob_to_one else 0.5),
-        #         noise_std_range=(0., 0.25)
-        #     ),
-        # RandomFeatureShift(
-        #     apply_prob=(1.0 if prob_to_one else 0.5),
-        #     shift_range=(-0.5, 0.5)
-        # ),
-        # RandomFeatureScale(
-        #     apply_prob=(1.0 if prob_to_one else 0.5),
-        #     scale_range=(0.5, 1.5)
-        # ),
-        # RandomFeatureScaleWithStatsInversion(
-        #     apply_prob=(1.0 if prob_to_one else 0.5),
-        #     gamma_range=(0.65, 1.7)
-        # ),
-        # RandomErasing(
-        #     apply_prob=(1.0 if prob_to_one else 0.5),
-        #     patch_radius_range=(1.5 / 928, 5.5 / 928),
-        #     num_patches_range=(1, 7)
-        # ),
-        # RandomBrightnessGradient(
-        #     apply_prob=(1.0 if prob_to_one else 0.5),
-        #     brightness_gradient_scale_max=928. / 928.,
-        #     max_brightness_gradient_strength=1.5,
-        # ),
+        AnyAugmentation(
+            RandomGaussianSmoothing(
+                apply_prob=(1.0 if prob_to_one else 0.5), 
+                smoothing_radius_range=(1.0 / 928, 5. / 928), 
+                smoothing_sigma_range=(0., 3. / 928)
+                ),
+            RandomMedianSmoothing(
+                    apply_prob=(1.0 if prob_to_one else 0.5),
+                    smoothing_radius_range=(1. / 928, 2. / 928)
+                ),
+            ),
+        RandomSmoothPointFeatures(
+            apply_prob=(1.0 if prob_to_one else 0.5),
+            smoothing_range=(1., 7.),
+            smoothing_sigma_range=(1.5, 5.)
+        ),
+        RandomFeatureDropout(
+                apply_prob=(1.0 if prob_to_one else 0.5),
+                dropout_prob_range=(0., 0.15)
+            ),
+        RandomFeatureNoise(
+                apply_prob=(1.0 if prob_to_one else 0.5),
+                noise_std_range=(0., 0.25)
+            ),
+        RandomFeatureShift(
+            apply_prob=(1.0 if prob_to_one else 0.5),
+            shift_range=(-0.5, 0.5)
+        ),
+        RandomFeatureScale(
+            apply_prob=(1.0 if prob_to_one else 0.5),
+            scale_range=(0.5, 1.5)
+        ),
+        RandomFeatureScaleWithStatsInversion(
+            apply_prob=(1.0 if prob_to_one else 0.5),
+            gamma_range=(0.65, 1.7)
+        ),
+        RandomErasing(
+            apply_prob=(1.0 if prob_to_one else 0.5),
+            patch_radius_range=(1.5 / 928, 5.5 / 928),
+            num_patches_range=(1, 7)
+        ),
+        RandomBrightnessGradient(
+            apply_prob=(1.0 if prob_to_one else 0.5),
+            brightness_gradient_scale_max=928. / 928.,
+            max_brightness_gradient_strength=1.5,
+        ),
         RandomLocalBrightnessGamma(
             apply_prob=(1.0 if prob_to_one else 0.5),
             local_brightness_gamma_scale_range=(0., 0.75)
