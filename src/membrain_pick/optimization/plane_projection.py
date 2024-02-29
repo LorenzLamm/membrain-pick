@@ -8,6 +8,51 @@ import numpy as np
 from sklearn.decomposition import PCA
 from scipy.spatial.transform import Rotation as R
 from matplotlib import pyplot as plt
+from sklearn.neighbors import KDTree
+
+
+
+
+
+def project_points_to_nearest_hyperplane(points, candiate_points):
+    print("Projecting points to nearest hyperplane.")
+    # Find nearest three points for each point
+    tree = KDTree(candiate_points)
+    _, nn_idcs = tree.query(points, k=3)
+    P1 = candiate_points[nn_idcs[:, 0]]
+    P2 = candiate_points[nn_idcs[:, 1]]
+    P3 = candiate_points[nn_idcs[:, 2]]
+
+    for i, point in enumerate(points):
+        P1 = candiate_points[nn_idcs[i, 0]]
+        P2 = candiate_points[nn_idcs[i, 1]]
+        P3 = candiate_points[nn_idcs[i, 2]]
+        projection = project_point_to_hyperplane(point, P1, P2, P3)
+        points[i] = projection
+    return points
+
+
+def project_point_to_hyperplane(P, P1, P2, P3):
+    # Calculate vectors P1P2 and P1P3
+    P1P2 = P2 - P1
+    P1P3 = P3 - P1
+
+    # Calculate the normal vector (A, B, C) by taking the cross product of P1P2 and P1P3
+    normal_vector = np.cross(P1P2, P1P3)
+
+    # Calculate D using one of the points, say P1
+    D = -np.dot(normal_vector, P1)
+
+    # Calculate the projection of P onto the hyperplane
+    # Using the formula: P_proj = P - ((A*Px + B*Py + C*Pz + D) / (A^2 + B^2 + C^2)) * normal_vector
+    numerator = np.dot(normal_vector, P) + D
+    denominator = np.dot(normal_vector, normal_vector)
+    projection = P - (numerator / denominator) * normal_vector
+
+    normal_vector, D, projection
+    return projection
+
+
 
 def find_best_fit_plane(point_cloud):
     # Center the point cloud
