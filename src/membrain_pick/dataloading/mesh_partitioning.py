@@ -88,6 +88,8 @@ def find_adjacent_faces(faces, mb_idx: int, start_face: int, edge_to_face_map: d
         back_1_weight = 0.0
         back_2_weight = 0.125
         back_3_weight = 0.250
+        back_4_weight = 0.375
+        back_5_weight = 0.500
 
         faces = faces[mb_idx]
         
@@ -97,6 +99,9 @@ def find_adjacent_faces(faces, mb_idx: int, start_face: int, edge_to_face_map: d
         faces_back_1 = []
         faces_back_2 = []
         faces_back_3 = []
+        faces_back_4 = []
+        faces_back_5 = []
+
         while len(cur_faces) < max_sampled_points:
             prev_len = len(cur_faces)
             for face in cur_faces:
@@ -112,18 +117,25 @@ def find_adjacent_faces(faces, mb_idx: int, start_face: int, edge_to_face_map: d
             back_1_mask = np.isin(cur_faces, faces_back_1)
             back_2_mask = np.isin(cur_faces, faces_back_2)
             back_3_mask = np.isin(cur_faces, faces_back_3)
+            back_4_mask = np.isin(cur_faces, faces_back_4)
+            back_5_mask = np.isin(cur_faces, faces_back_5)
 
             cur_faces = np.array(cur_faces)
             cur_faces_weights = {face: back_1_weight for face in cur_faces}
             cur_faces_weights.update({face: back_2_weight for face in cur_faces[back_1_mask]})
             cur_faces_weights.update({face: back_3_weight for face in cur_faces[back_2_mask]})
-            cur_faces_weights.update({face: 1.0 for face in cur_faces[back_3_mask]})
+            cur_faces_weights.update({face: back_4_weight for face in cur_faces[back_3_mask]})
+            cur_faces_weights.update({face: back_5_weight for face in cur_faces[back_4_mask]})
+            cur_faces_weights.update({face: 1.0 for face in cur_faces[back_5_mask]})
+
             cur_faces = list(cur_faces)
 
-            faces_back_3 = faces_back_3 + faces_back_2
+
+            faces_back_5 = faces_back_5 + faces_back_4
+            faces_back_4 = faces_back_3
+            faces_back_3 = faces_back_2
             faces_back_2 = faces_back_1
             faces_back_1 = cur_faces
-
 
 
             new_len = len(cur_faces)
