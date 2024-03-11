@@ -149,7 +149,7 @@ def apply_local_gamma_to_pointcloud(point_cloud, features, scale=1.0, loc=(-.3, 
     
     # Apply gamma correction to each point's feature
     mn, mx = features.min(), features.max()
-    normalized_features = (features - mn) / (mx - mn)
+    normalized_features = (features - mn) / (mx - mn + 1e-10)
     modified_features = np.zeros_like(features)
     
     for i, gamma in enumerate(gamma_values):
