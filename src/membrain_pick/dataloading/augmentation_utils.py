@@ -90,13 +90,13 @@ def scale_point_cloud_stats_inversion(features, gamma):
     return adjusted_features
 
 
-def random_erase(point_cloud, features, tree, patch_radius=0.1, num_patches=1):
+def random_erase(point_cloud, features, tree, patch_radii=[1], num_patches=1):
     """Randomly erases points from a point cloud."""
     erased_features = features.copy()
-    for _ in range(num_patches):
+    for patch_nr in range(num_patches):
         center_idx = np.random.randint(point_cloud.shape[0])
         center_point = point_cloud[center_idx]
-        indices = tree.query_ball_point(center_point, r=patch_radius)
+        indices = tree.query_ball_point(center_point, r=patch_radii[patch_nr])
         if not indices:
             continue
         erased_features[indices] = 0
@@ -131,7 +131,7 @@ def apply_gradient_to_pointcloud(point_cloud, features, scale, loc=(-1, 2), stre
 
 
 
-def apply_local_gamma_to_pointcloud(point_cloud, features, scale=1.0, loc=(-.5, 1.5), gamma_range=(0.7, 1.4)):
+def apply_local_gamma_to_pointcloud(point_cloud, features, scale=1.0, loc=(-.3, 1.3), gamma_range=(0.5, 2.0)):
     # Determine the bounds for the reference point selection
     bounds_min, bounds_max = point_cloud.min(axis=0), point_cloud.max(axis=0)
     reference_point = np.array([np.random.uniform(bounds_min[i] + loc[0] * (bounds_max[i] - bounds_min[i]), 
@@ -149,7 +149,7 @@ def apply_local_gamma_to_pointcloud(point_cloud, features, scale=1.0, loc=(-.5, 
     
     # Apply gamma correction to each point's feature
     mn, mx = features.min(), features.max()
-    normalized_features = (features - mn) / (mx - mn)
+    normalized_features = (features - mn) / (mx - mn + 1e-10)
     modified_features = np.zeros_like(features)
     
     for i, gamma in enumerate(gamma_values):

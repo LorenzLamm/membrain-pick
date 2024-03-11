@@ -7,7 +7,7 @@ concerned with the spatial arrangement of the points themselves.
 
 """
 import numpy as np
-from augmentation_utils import (
+from membrain_pick.dataloading.augmentation_utils import (
     apply_gaussian_filter,
     apply_median_filter,
     scale_point_cloud_features,
@@ -244,8 +244,8 @@ class RandomErasing(PointCloudAugmentation):
         self._randomize()
 
     def _randomize(self):
-        self.patch_radius = np.random.uniform(self.patch_radius_min, self.patch_radius_max)
         self.num_patches = np.random.randint(self.num_patches_min, self.num_patches_max)
+        self.patch_radii = np.random.uniform(self.patch_radius_min, self.patch_radius_max, self.num_patches)
     
     def __call__(self, point_cloud_dict, keys, mb_tree, *args, **kwargs):
         if np.random.rand() < self.apply_prob:
@@ -254,7 +254,7 @@ class RandomErasing(PointCloudAugmentation):
                 transform_array = random_erase(point_cloud_dict[key][:, :3],
                                                 transform_array,
                                                 tree=mb_tree,
-                                                patch_radius=self.patch_radius,
+                                                patch_radii=self.patch_radii,
                                                 num_patches=self.num_patches)
                 point_cloud_dict = self.insert_transform_array(point_cloud_dict, key, transform_array)
         return point_cloud_dict
@@ -289,15 +289,16 @@ class RandomBrightnessGradient(PointCloudAugmentation):
 
 
 class RandomLocalBrightnessGamma(PointCloudAugmentation):
-    def __init__(self, apply_prob=0.5, local_brightness_gamma_scale_max=1.0, **kwargs):
+    def __init__(self, apply_prob=0.5, local_brightness_gamma_scale_range=(0.5, 2), **kwargs):
         super().__init__(**kwargs)
-        self.local_brightness_gamma_scale_max = local_brightness_gamma_scale_max
+        self.local_brightness_gamma_scale_min, self.local_brightness_gamma_scale_max = local_brightness_gamma_scale_range
         self.apply_prob = apply_prob
         assert self.has_positions, "RandomLocalBrightnessGamma requires point positions"
         self._randomize()
     
     def _randomize(self):
-        self.local_brightness_gamma_scale = np.random.uniform(0, self.local_brightness_gamma_scale_max)
+        self.local_brightness_gamma_scale = np.random.uniform(self.local_brightness_gamma_scale_min, 
+                                                              self.local_brightness_gamma_scale_max)
     
     def __call__(self, point_cloud_dict, keys, *args, **kwargs):
         if np.random.rand() < self.apply_prob:
@@ -344,6 +345,17 @@ class RandomSmoothPointFeatures(PointCloudAugmentation):
                 point_cloud_dict = self.insert_transform_array(point_cloud_dict, key, transform_array)
             
         return point_cloud_dict
+    
+class AnyAugmentation(PointCloudAugmentation):
+    def __init__(self, augmentations, **kwargs):
+        super().__init__(**kwargs)
+        self.augmentations = augmentations
+        self.aug_len = len(augmentations)
+    
+    def __call__(self, point_cloud_dict, keys, mb_tree):
+        aug_idx = np.random.randint(0, self.aug_len)
+        point_cloud_dict = self.augmentations[aug_idx](point_cloud_dict, keys, mb_tree)
+        return point_cloud_dict
 
 
 class RandomFeatureAugmentation(PointCloudAugmentation):
@@ -370,7 +382,7 @@ def test():
     sample_idx = 2
 
     point_cloud = {
-        "features": ds.part_verts[sample_idx]
+        "features": ds.part_verts[sample_idx].copy()
     }
     mb_tree = ds.kdtrees[sample_idx]
 
@@ -378,22 +390,29 @@ def test():
 
     list_of_augmentations = [
         NormalizeFeatures(),
-        RandomGaussianSmoothing(
-            apply_prob=(1.0 if prob_to_one else 0.5), 
-            smoothing_radius_range=(0.1, 0.5), 
-            smoothing_sigma_range=(0.1, 0.5)
-            ),
+        AnyAugmentation(
+            RandomGaussianSmoothing(
+                apply_prob=(1.0 if prob_to_one else 0.5), 
+                smoothing_radius_range=(1.0 / 928, 5. / 928), 
+                smoothing_sigma_range=(0., 3. / 928)
+                ),
             RandomMedianSmoothing(
-                apply_prob=(1.0 if prob_to_one else 0.5),
-                smoothing_radius_range=(0.1, 0.5)
+                    apply_prob=(1.0 if prob_to_one else 0.5),
+                    smoothing_radius_range=(1. / 928, 2. / 928)
+                ),
             ),
-            RandomFeatureDropout(
+        RandomSmoothPointFeatures(
+            apply_prob=(1.0 if prob_to_one else 0.5),
+            smoothing_range=(1., 7.),
+            smoothing_sigma_range=(1.5, 5.)
+        ),
+        RandomFeatureDropout(
                 apply_prob=(1.0 if prob_to_one else 0.5),
-                dropout_prob_range=(0., 0.3)
+                dropout_prob_range=(0., 0.15)
             ),
-            RandomFeatureNoise(
+        RandomFeatureNoise(
                 apply_prob=(1.0 if prob_to_one else 0.5),
-                noise_std_range=(0., 0.3)
+                noise_std_range=(0., 0.25)
             ),
         RandomFeatureShift(
             apply_prob=(1.0 if prob_to_one else 0.5),
@@ -405,32 +424,32 @@ def test():
         ),
         RandomFeatureScaleWithStatsInversion(
             apply_prob=(1.0 if prob_to_one else 0.5),
-            gamma_range=(0.5, 2.0)
+            gamma_range=(0.65, 1.7)
         ),
         RandomErasing(
             apply_prob=(1.0 if prob_to_one else 0.5),
-            patch_radius_range=(0.1, 0.5),
-            num_patches_range=(1, 5)
+            patch_radius_range=(1.5 / 928, 5.5 / 928),
+            num_patches_range=(1, 7)
         ),
         RandomBrightnessGradient(
             apply_prob=(1.0 if prob_to_one else 0.5),
-            max_brightness_gradient_strength=1.0,
+            brightness_gradient_scale_max=928. / 928.,
+            max_brightness_gradient_strength=1.5,
         ),
         RandomLocalBrightnessGamma(
             apply_prob=(1.0 if prob_to_one else 0.5),
-            local_brightness_gamma_scale_max=1.0
+            local_brightness_gamma_scale_range=(0., 0.75)
+            # local_brightness_gamma_scale_range=(0., 30. / 928)
         ),
-        RandomSmoothPointFeatures(
-            apply_prob=(1.0 if prob_to_one else 0.5),
-            smoothing_range=(0, 5),
-            smoothing_sigma_range=(0.1, 0.5)
-        )
     ]
 
     rand_aug = RandomFeatureAugmentation(list_of_augmentations)
-    for i in range(10):
+    for i in range(30):
         print(f"Applying augmentation {i}")
-        point_cloud = rand_aug(point_cloud, ["features"], mb_tree)
+        point_cloud_orig = {
+        "features": ds.part_verts[sample_idx].copy()
+        }
+        point_cloud = rand_aug(point_cloud_orig.copy(), ["features"], mb_tree)
         make_2D_projection_scatter_plot(
             out_file="/scicore/home/engel0006/GROUP/pool-engel/Lorenz/2D_projections/mesh_tests/meta_augmentation_test_" + str(i),
             point_cloud=point_cloud["features"][:, :3],

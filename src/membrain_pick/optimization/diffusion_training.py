@@ -152,23 +152,17 @@ def training_step(epoch,
     
     mb_idx_loss_dict = {}
     for sample in dataloader:
-            features, mass, L, evals, evecs, gradX, gradY, faces, labels, gt_pos, verts, mb_idx, verts_orig, point_weights = load_data_from_batch(epoch, 
-                                                                                                sample, 
-                                                                                                use_faces, 
-                                                                                                cache_dir, 
-                                                                                                k_eig=k_eig, 
-                                                                                                use_precomputed_normals=use_precomputed_normals, 
-                                                                                                normalize_verts=normalize_verts, 
-                                                                                                hks_features=hks_features,
-                                                                                                augment_random_rotate=augment_random_rotate,
-                                                                                                aggregate_coordinates=aggregate_coordinates,
-                                                                                                random_sample_thickness=random_sample_thickness,
-                                                                                                classification=classification,
-                                                                                                distance_radius=distance_radius,
-                                                                                                )
-            if features is None:
-                continue
             
+            idx_dict = sample
+            if not "diffusion_inputs" in idx_dict.keys():
+                continue
+            point_weights = idx_dict["vert_weights"].float().squeeze(0)
+            verts_orig = idx_dict["verts_orig"].float()
+            gt_pos = idx_dict["gt_pos"].float()
+            labels = idx_dict["label"].float()
+            mb_idx = idx_dict["mb_idx"]
+
+
             model = model.float()  # Ensure the model parameters are float32
             model.train()
             # Zero the gradients before running the backward pass.
@@ -176,7 +170,42 @@ def training_step(epoch,
             
             # Forward-evaluate the model
             # preds is a NxC_out array of values
-            outputs = model(features, mass, L=L, evals=evals, evecs=evecs, gradX=gradX, gradY=gradY, faces=faces, verts=verts)
+            outputs = model(
+                x_in=idx_dict["diffusion_inputs"]["features"],
+                mass=idx_dict["diffusion_inputs"]["mass"],
+                L=idx_dict["diffusion_inputs"]["L"],
+                evals=idx_dict["diffusion_inputs"]["evals"],
+                evecs=idx_dict["diffusion_inputs"]["evecs"],
+                gradX=idx_dict["diffusion_inputs"]["gradX"],
+                gradY=idx_dict["diffusion_inputs"]["gradY"],
+                faces=idx_dict["diffusion_inputs"]["faces"],
+            )
+
+            # features, mass, L, evals, evecs, gradX, gradY, faces, labels, gt_pos, verts, mb_idx, verts_orig, point_weights = load_data_from_batch(epoch, 
+            #                                                                                     sample, 
+            #                                                                                     use_faces, 
+            #                                                                                     cache_dir, 
+            #                                                                                     k_eig=k_eig, 
+            #                                                                                     use_precomputed_normals=use_precomputed_normals, 
+            #                                                                                     normalize_verts=normalize_verts, 
+            #                                                                                     hks_features=hks_features,
+            #                                                                                     augment_random_rotate=augment_random_rotate,
+            #                                                                                     aggregate_coordinates=aggregate_coordinates,
+            #                                                                                     random_sample_thickness=random_sample_thickness,
+            #                                                                                     classification=classification,
+            #                                                                                     distance_radius=distance_radius,
+            #                                                                                     )
+            # if features is None:
+            #     continue
+            
+            # model = model.float()  # Ensure the model parameters are float32
+            # model.train()
+            # # Zero the gradients before running the backward pass.
+            # optimizer.zero_grad()
+            
+            # Forward-evaluate the model
+            # preds is a NxC_out array of values
+            # outputs = model(features, mass, L=L, evals=evals, evecs=evecs, gradX=gradX, gradY=gradY, faces=faces, verts=verts)
             ms_loss = 0.
             if use_mean_shift:
                 if gt_pos.shape[0] != 0 and torch.sum(labels < 10.) > 10:
@@ -205,7 +234,7 @@ def training_step(epoch,
             outputs *= point_weights
             labels *= point_weights
 
-            loss = loss_fn(outputs, labels).float()
+            loss = loss_fn(outputs, labels.squeeze()).float()
             # if use_mean_shift:
             #     loss *= 0.
 
@@ -282,23 +311,43 @@ def validation_step(epoch,
 
     with torch.no_grad():  # No gradients needed for validation
         for sample_id, sample in enumerate(dataloader):
-            
-            features, mass, L, evals, evecs, gradX, gradY, faces, labels, gt_pos, verts, mb_idx, verts_orig, point_weights = load_data_from_batch(epoch,
-                                                                                                sample, 
-                                                                                                use_faces, 
-                                                                                                cache_dir, 
-                                                                                                k_eig=k_eig, 
-                                                                                                use_precomputed_normals=use_precomputed_normals, 
-                                                                                                normalize_verts=normalize_verts, 
-                                                                                                hks_features=hks_features,
-                                                                                                aggregate_coordinates=aggregate_coordinates,
-                                                                                                random_sample_thickness=random_sample_thickness,
-                                                                                                classification=classification,
-                                                                                                distance_radius=distance_radius,
-                                                                                                )
-            
-            if features is None:
+
+            idx_dict = sample
+            if not "diffusion_inputs" in idx_dict.keys():
                 continue
+
+            point_weights = idx_dict["vert_weights"].float().squeeze()
+            verts_orig = idx_dict["verts_orig"].float()
+            gt_pos = idx_dict["gt_pos"].float()
+            labels = idx_dict["label"].float()
+            mb_idx = idx_dict["mb_idx"]
+
+            outputs = model(
+                x_in=idx_dict["diffusion_inputs"]["features"],
+                mass=idx_dict["diffusion_inputs"]["mass"],
+                L=idx_dict["diffusion_inputs"]["L"],
+                evals=idx_dict["diffusion_inputs"]["evals"],
+                evecs=idx_dict["diffusion_inputs"]["evecs"],
+                gradX=idx_dict["diffusion_inputs"]["gradX"],
+                gradY=idx_dict["diffusion_inputs"]["gradY"],
+                faces=idx_dict["diffusion_inputs"]["faces"],
+            )
+            # features, mass, L, evals, evecs, gradX, gradY, faces, labels, gt_pos, verts, mb_idx, verts_orig, point_weights = load_data_from_batch(epoch,
+            #                                                                                     sample, 
+            #                                                                                     use_faces, 
+            #                                                                                     cache_dir, 
+            #                                                                                     k_eig=k_eig, 
+            #                                                                                     use_precomputed_normals=use_precomputed_normals, 
+            #                                                                                     normalize_verts=normalize_verts, 
+            #                                                                                     hks_features=hks_features,
+            #                                                                                     aggregate_coordinates=aggregate_coordinates,
+            #                                                                                     random_sample_thickness=random_sample_thickness,
+            #                                                                                     classification=classification,
+            #                                                                                     distance_radius=distance_radius,
+            #                                                                                     )
+            
+            # if features is None:
+            #     continue
 
             # # Forward-evaluate the model
             # outputs = model(features, mass, L=L, evals=evals, evecs=evecs, gradX=gradX, gradY=gradY, faces=faces).squeeze().float()
@@ -308,7 +357,7 @@ def validation_step(epoch,
 
              # preds is a NxC_out array of values
             
-            outputs = model(features, mass, L=L, evals=evals, evecs=evecs, gradX=gradX, gradY=gradY, faces=faces, verts=verts)
+            # outputs = model(features, mass, L=L, evals=evals, evecs=evecs, gradX=gradX, gradY=gradY, faces=faces, verts=verts)
             ms_loss = 0.
             if use_mean_shift:
                 if gt_pos.shape[0] != 0 and torch.sum(labels < 10.) > 10:
@@ -334,8 +383,11 @@ def validation_step(epoch,
             #         ms_loss, _, _ = ms_loss(gt_pos.to(model.device), outputs_ms.to(model.device))
 
             outputs = outputs.squeeze().float()
+
+            outputs *= point_weights
+            labels *= point_weights
             # Compute and print loss
-            loss = loss_fn(outputs, labels).float()
+            loss = loss_fn(outputs, labels.squeeze()).float()
 
 
             if plot_flag and mb_idx != prev_mb_idx or sample_id == len(dataloader) - 1:
@@ -415,12 +467,13 @@ def validation_step(epoch,
                     sample_pred_pos_ms = []
                     sample_features = []
 
+            features = idx_dict["diffusion_inputs"]["features"]
             if plot_flag:
                 sample_preds.append(outputs.cpu().detach().numpy())
-                sample_gt.append(labels.cpu().detach().numpy())
-                sample_gt_pos.append(gt_pos.cpu().detach().numpy())
-                sample_verts.append(verts_orig.cpu().detach().numpy())
-                sample_features.append(features.cpu().detach().numpy())
+                sample_gt.append(labels.cpu().detach().numpy().squeeze(0))
+                sample_gt_pos.append(gt_pos.cpu().detach().numpy().squeeze(0))
+                sample_verts.append(verts_orig.cpu().detach().numpy().squeeze(0))
+                sample_features.append(features.cpu().detach().numpy().squeeze(0))
                 if use_mean_shift:
                     sample_pred_pos_ms.append(outputs_ms.cpu().detach().numpy())
 
