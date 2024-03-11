@@ -35,13 +35,15 @@ class LearnedTimeDiffusion(nn.Module):
       - (V,C) diffused values 
     """
 
-    def __init__(self, C_inout, method='spectral', fixed_time=None, shared_time=False):
+    def __init__(self, C_inout, method='spectral', fixed_time=None, shared_time=False, leaky_relu=False, clamp_diffusion=False):
         super(LearnedTimeDiffusion, self).__init__()
         self.C_inout = C_inout
         self.diffusion_time = nn.Parameter(torch.Tensor(C_inout))  # (C)
         self.method = method # one of ['spectral', 'implicit_dense']
         self.fixed_time = fixed_time
         self.shared_time = shared_time
+        self.leaky_relu = leaky_relu
+        self.clamp_diffusion = clamp_diffusion
 
         nn.init.constant_(self.diffusion_time, 0.0)
         
@@ -52,6 +54,8 @@ class LearnedTimeDiffusion(nn.Module):
         # (and away from 0 in the incredibly rare chance that they get stuck)
         with torch.no_grad():
             self.diffusion_time.data = torch.clamp(self.diffusion_time, min=1e-12)
+            if self.clamp_diffusion:
+                self.diffusion_time.data = torch.clamp(self.diffusion_time, max=1e-3)
 
         if x.shape[-1] != self.C_inout:
             raise ValueError(
@@ -69,12 +73,16 @@ class LearnedTimeDiffusion(nn.Module):
                 time = self.diffusion_time.mean()
             else:
                 time = self.diffusion_time
+
             diffusion_coefs = torch.exp(-evals.unsqueeze(-1) * time.unsqueeze(0))
             x_diffuse_spec = diffusion_coefs * x_spec
 
             # Transform back to per-vertex 
             x_diffuse = from_basis(x_diffuse_spec, evecs)
-            
+            if self.leaky_relu:
+                x_diffuse = F.leaky_relu(x_diffuse, negative_slope=0.01) #TODO: This is questionable!!! 
+        
+        
         elif self.method == 'implicit_dense':
             V = x.shape[-2]
 
@@ -219,7 +227,6 @@ class SeparableDiffusionNetBlock(nn.Module):
 
         # Diffusion block
         x_diffuse = self.diffusion(x_in, L, mass, evals, evecs)
-        
         # Compute gradient features, if using
         if self.with_gradient_features:
                 
@@ -241,6 +248,7 @@ class SeparableDiffusionNetBlock(nn.Module):
 
         else:
             # Stack inputs to mlp
+            
             feature_combined = torch.stack((x_in, x_diffuse), dim=-1)
         
         feature_combined = feature_combined.reshape(-1, self.C_in, self.Conv_C_in)
@@ -273,6 +281,10 @@ class DiffusionNetBlock(nn.Module):
                  with_gradient_features=True, 
                  with_gradient_rotations=True,
                  fixed_time=None,
+                 clamp_diffusion=False,
+                 visualize_diffusion=False,
+                 visualize_grad_rotations=False,
+                 visualize_grad_features=False,
                  ):
         super(DiffusionNetBlock, self).__init__()
 
@@ -284,14 +296,22 @@ class DiffusionNetBlock(nn.Module):
         self.with_gradient_features = with_gradient_features
         self.with_gradient_rotations = with_gradient_rotations
 
+        self.visualize_diffusion = visualize_diffusion
+        self.visualize_grad_rotations = visualize_grad_rotations
+        self.visualize_grad_features = visualize_grad_features
+
         # Diffusion block
-        self.diffusion = LearnedTimeDiffusion(self.C_width, method=diffusion_method, fixed_time=fixed_time)
+        self.diffusion = LearnedTimeDiffusion(self.C_width, 
+                                              method=diffusion_method, 
+                                              fixed_time=fixed_time, 
+                                              clamp_diffusion=clamp_diffusion)
         
         self.MLP_C = 2*self.C_width
 
       
         if self.with_gradient_features:
-            self.gradient_features = SpatialGradientFeatures(self.C_width, with_gradient_rotations=self.with_gradient_rotations)
+            self.gradient_features = SpatialGradientFeatures(self.C_width, 
+                                                             with_gradient_rotations=self.with_gradient_rotations)
             self.MLP_C += self.C_width
         
         # MLPs
@@ -326,16 +346,44 @@ class DiffusionNetBlock(nn.Module):
             x_grad_features = self.gradient_features(x_grad) 
 
             # Stack inputs to mlp
+            if self.visualize_diffusion:
+                print("visualizing diffusion")
+                return x_diffuse
+                x_grad_features = torch.zeros_like(x_grad_features)
+                x_in = torch.zeros_like(x_in)
+                
+                # feature_combined = torch.cat((x_diffuse, x_diffuse, x_diffuse), dim=-1)
+            elif self.visualize_grad_features:
+                print("visualizing diffusion")
+                return x_grad_features
+                x_diffuse = torch.zeros_like(x_diffuse)
+                x_in = torch.zeros_like(x_in)
+                x_grad_features[:, :, 1:] = 0
+                # feature_combined = torch.cat((x_grad_features, x_grad_features, x_grad_features), dim=-1)
+            elif self.visualize_grad_rotations:
+                print("visualizing diffusion")
+                return x_grad_features
+                x_diffuse = torch.zeros_like(x_diffuse)
+                x_in = torch.zeros_like(x_in)
+                # feature_combined = torch.cat((x_grad_features, x_grad_features, x_grad_features), dim=-1)
+            # else:
             feature_combined = torch.cat((x_in, x_diffuse, x_grad_features), dim=-1)
+            # feature_combined = torch.cat((x_grad_features, x_diffuse, x_grad_features), dim=-1)
         else:
             # Stack inputs to mlp
-            feature_combined = torch.cat((x_in, x_diffuse), dim=-1)
+            # feature_combined = torch.cat((x_diffuse, x_diffuse), dim=-1)
+            if self.visualize_diffusion:
+                print("visualizing diffusion")
+                return x_diffuse
+                feature_combined = torch.cat((x_diffuse, x_diffuse), dim=-1)
+            else:
+                feature_combined = torch.cat((x_in, x_diffuse), dim=-1)
 
         # Apply the mlp
         x0_out = self.mlp(feature_combined)
 
         # Skip connection
-        x0_out = x0_out + x_in
+        # x0_out = x0_out + x_in
 
         return x0_out
 
@@ -359,7 +407,7 @@ class DiffusionNet(nn.Module):
 
     def __init__(self, C_in, C_out, C_width=128, N_block=4, last_activation=None, outputs_at='vertices', mlp_hidden_dims=None, dropout=True, 
                        with_gradient_features=True, with_gradient_rotations=True, diffusion_method='spectral', lstm_first=False, mean_shift_clustering=False, ms_bandwidth=0.1, device="cuda:0",
-                       fixed_time=None, one_D_conv_first=False):   
+                       fixed_time=None, one_D_conv_first=False, clamp_diffusion=False, visualize_diffusion=False, visualize_grad_rotations=False, visualize_grad_features=False,):   
         """
         Construct a DiffusionNet.
 
@@ -390,6 +438,10 @@ class DiffusionNet(nn.Module):
         self.lstm_first = lstm_first
         self.fixed_time = fixed_time
         self.one_D_conv_first = one_D_conv_first
+        self.visualize_diffusion = visualize_diffusion
+        self.visualize_grad_rotations = visualize_grad_rotations
+        self.visualize_grad_features = visualize_grad_features
+
 
         self.device = device
 
@@ -444,6 +496,10 @@ class DiffusionNet(nn.Module):
                                       with_gradient_features = with_gradient_features, 
                                       with_gradient_rotations = with_gradient_rotations,
                                       fixed_time=fixed_time,
+                                      clamp_diffusion=clamp_diffusion,
+                                      visualize_diffusion=visualize_diffusion,
+                                      visualize_grad_rotations=visualize_grad_rotations, 
+                                      visualize_grad_features=visualize_grad_features,
                                       )
 
             self.blocks.append(block)
@@ -482,7 +538,7 @@ class DiffusionNet(nn.Module):
         }
 
 
-    def forward(self, x_in, mass, L=None, evals=None, evecs=None, gradX=None, gradY=None, edges=None, faces=None, verts=None):
+    def forward(self, x_in, mass, L=None, evals=None, evecs=None, gradX=None, gradY=None, edges=None, faces=None):
         """
         A forward pass on the DiffusionNet.
 
@@ -547,6 +603,10 @@ class DiffusionNet(nn.Module):
         # Apply each of the blocks
         for b in self.blocks:
             x = b(x, mass, L, evals, evecs, gradX, gradY)
+        
+
+        if self.visualize_diffusion or self.visualize_grad_rotations or self.visualize_grad_features:
+            return x[:, :, 7]
         
         # Apply the last linear layer
         x = self.last_lin(x)
