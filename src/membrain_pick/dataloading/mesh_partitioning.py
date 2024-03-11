@@ -6,7 +6,8 @@ import numpy as np
 import hashlib
 from typing import List, Tuple, Optional, Dict, Any
 from scipy.spatial import cKDTree
-
+import potpourri3d as pp3d
+from tqdm import tqdm
 
 def compute_nearest_distances(point_data, PSII_pos):
     kd_tree = cKDTree(PSII_pos)
@@ -21,7 +22,7 @@ def get_array_hash(array):
     return hasher.hexdigest()
 
 
-def exclude_faces_from_candidates(face_list: np.ndarray, candidates: np.ndarray, faces_weights: np.ndarray):
+def exclude_faces_from_candidates(face_list: np.ndarray, candidates: np.ndarray, faces_weights: np.ndarray, min_weight: float):
         """
         Excludes faces from a list of candidates.
 
@@ -41,8 +42,8 @@ def exclude_faces_from_candidates(face_list: np.ndarray, candidates: np.ndarray,
         np.ndarray
             Filtered list of candidates.
         """
-
-        mask = np.isin(candidates, np.array(face_list)[faces_weights == 1.0])
+        faces_weights = np.mean(faces_weights, axis=1)
+        mask = np.isin(candidates, np.array(face_list)[faces_weights > min_weight])
         return candidates[~mask]
 
 
@@ -69,84 +70,100 @@ def build_edge_to_face_map(faces):
                 edge_to_face[edge].append(i)
         return edge_to_face
 
-def find_adjacent_faces(faces, mb_idx: int, start_face: int, edge_to_face_map: dict, max_sampled_points: int):
+
+def gaussian_weights(dists, sigma):
+    return np.exp(-dists**2 / (2 * sigma**2))
+
+
+def find_adjacent_faces(faces, verts: np.ndarray, start_face: int, max_sampled_points: int):
         """
         Finds all faces adjacent to the specified face.
 
         Parameters
         ----------
-        mb_idx : int
-            Index of the membrane to be sampled.
+        faces : np.ndarray
+            List of faces.
+        verts : np.ndarray
+            List of vertices.
         start_face : int
             Index of the face to start the search from.
+        max_sampled_points : int
+            Maximum number of sampled vertices.
 
         Returns
         -------
         np.ndarray
             Indices of the adjacent faces.
         """
-        back_1_weight = 0.0
-        back_2_weight = 0.125
-        back_3_weight = 0.250
-        back_4_weight = 0.375
-        back_5_weight = 0.500
-
-        faces = faces[mb_idx]
         
-        cur_faces = [start_face]
-        cur_faces_weights = {start_face: back_1_weight}
+        solver = pp3d.MeshHeatMethodDistanceSolver(verts,faces)
+        
+        # Choose first vertex of the face as the starting point
+        start_vert = faces[start_face][0]
 
-        faces_back_1 = []
-        faces_back_2 = []
-        faces_back_3 = []
-        faces_back_4 = []
-        faces_back_5 = []
+        # Compute geometric distances to all vertices
+        dists = solver.compute_distance(start_vert)
 
-        while len(cur_faces) < max_sampled_points:
-            prev_len = len(cur_faces)
-            for face in cur_faces:
-                
-                # add_faces = find_faces_sharing_vertices(faces, faces[face])
-                add_faces = get_adjacent_triangles(faces, edge_to_face_map, face)
-                cur_faces.extend(add_faces)
-                cur_faces = list(np.unique(cur_faces))
-                
-                if len(cur_faces) >= max_sampled_points:
-                    break
+        # Sort vertices by distance and select the closest ones
+        sorted_idcs = np.argsort(dists)
+        sorted_idcs = sorted_idcs[:max_sampled_points]
 
-            back_1_mask = np.isin(cur_faces, faces_back_1)
-            back_2_mask = np.isin(cur_faces, faces_back_2)
-            back_3_mask = np.isin(cur_faces, faces_back_3)
-            back_4_mask = np.isin(cur_faces, faces_back_4)
-            back_5_mask = np.isin(cur_faces, faces_back_5)
+        # Find faces that contain the selected vertices
+        # TODO: Can this lead to degenerate cases?
+        mask = np.isin(faces, sorted_idcs)
+        mask = np.all(mask, axis=1)
+        cur_faces = np.where(mask)[0]
 
-            cur_faces = np.array(cur_faces)
-            cur_faces_weights = {face: back_1_weight for face in cur_faces}
-            cur_faces_weights.update({face: back_2_weight for face in cur_faces[back_1_mask]})
-            cur_faces_weights.update({face: back_3_weight for face in cur_faces[back_2_mask]})
-            cur_faces_weights.update({face: back_4_weight for face in cur_faces[back_3_mask]})
-            cur_faces_weights.update({face: back_5_weight for face in cur_faces[back_4_mask]})
-            cur_faces_weights.update({face: 1.0 for face in cur_faces[back_5_mask]})
+        # Compute weights for the selected faces
+        face_verts = faces[cur_faces]
+        face_dists = dists[face_verts]
+        weights = gaussian_weights(face_dists, 0.5 * np.max(face_dists))
 
-            cur_faces = list(cur_faces)
-
-
-            faces_back_5 = faces_back_5 + faces_back_4
-            faces_back_4 = faces_back_3
-            faces_back_3 = faces_back_2
-            faces_back_2 = faces_back_1
-            faces_back_1 = cur_faces
-
-
-            new_len = len(cur_faces)
-            if new_len == prev_len:
-                print("No new faces added, breaking.")
-                break
-        cur_faces = np.unique(cur_faces)
-        cur_faces_weights[start_face] = 1.0
-        weights = np.array([cur_faces_weights[face] for face in cur_faces])
         return cur_faces, weights
 
+
+
+def find_closest_gt_positions(gt_pos, mb_verts, max_tomo_shape, dist_threshold=3.):
+    """
+    Finds the GT positions closest to the vertices of the current membrane patch.
+
+    Parameters
+    ----------
+    mb_idx : int
+        Index of the membrane to be sampled.
+    max_tomo_shape : int
+        Maximum shape of the tomogram.
+
+    Returns
+    -------
+    np.ndarray
+        Indices of the patches.
+    """
+    nn_dists, _ = compute_nearest_distances(gt_pos, mb_verts[:, :3])
+    gt_mask = nn_dists < dist_threshold / max_tomo_shape
+    return gt_pos[gt_mask]
+
+def renumber_faces(face_verts, face_list):
+    """
+    Renumber the faces to refer to the new vertex indices.
+
+    Parameters
+    ----------
+    face_verts : np.ndarray
+        List of vertices.
+    face_list : np.ndarray
+        List of faces.
+
+    Returns
+    -------
+    np.ndarray
+        Indices of the patches.
+    """
+    unique_vertex_indices = np.unique(face_verts)
+    index_mapping = {old_idx: new_idx for new_idx, old_idx in enumerate(unique_vertex_indices)}
+    face_list_updated = np.vectorize(index_mapping.get)(face_list)
+    return face_list_updated
+     
 def get_partition_from_face_list(mb: np.ndarray,
                                  faces: np.ndarray, 
                                  labels: np.ndarray,
@@ -174,8 +191,8 @@ def get_partition_from_face_list(mb: np.ndarray,
         """
         face_verts = faces[face_list]
         face_verts = face_verts.reshape(-1)
-        vert_weights = np.repeat(face_weight_list, 3)
-        vert_weights = vert_weights.reshape(-1)
+        # vert_weights = np.repeat(face_weight_list, 3)
+        vert_weights = face_weight_list.reshape(-1)
         
         unique_weights = np.unique(vert_weights)
         vert_weight_dict = {}
@@ -192,21 +209,12 @@ def get_partition_from_face_list(mb: np.ndarray,
         mb_vert_weights = np.array([vert_weight_dict[vert] for vert in face_verts])
 
         # Find close GT positions
-        nn_dists, _ = compute_nearest_distances(gt_pos, mb_verts[:, :3])
-        gt_mask = nn_dists < 3. / max_tomo_shape
-        part_gts = gt_pos[gt_mask]
+        part_gts = find_closest_gt_positions(gt_pos, mb_verts, max_tomo_shape, dist_threshold=3.)
 
-        # Create a mapping from old vertex indices to new indices
-        unique_vertex_indices = np.unique(face_verts)
-        index_mapping = {old_idx: new_idx for new_idx, old_idx in enumerate(unique_vertex_indices)}
+        # Account for the renumbering of the vertices
+        mb_faces_updated = renumber_faces(face_verts, mb_faces)
 
-        # Update the faces to refer to the new vertex indices
-        mb_faces_updated = np.vectorize(index_mapping.get)(mb_faces)
-        # return mb, mb_labels, mb_faces
-
-        # return mb, labels, faces
         return mb_verts, mb_labels, mb_faces_updated, mb_normals, part_gts, mb_vert_weights
-
 
 def load_cached_partitioning(cache_dir: str,
                              cur_cache_path: str,
@@ -235,7 +243,6 @@ def load_cached_partitioning(cache_dir: str,
             break
      return cache_found
 
-
 def compute_and_cache_partitioning(
           mb: np.ndarray,
           faces: np.ndarray,
@@ -246,17 +253,21 @@ def compute_and_cache_partitioning(
             overfit: bool,
             cache_path: str,
             list_of_partitioning_data: Tuple[List[np.ndarray], ...],
-            mb_idx: int
+            mb_idx: int,
+            min_gaussian_weight: float
 ):
-    edge_to_face_map = build_edge_to_face_map(faces[mb_idx])
     face_candidates = np.arange(faces[mb_idx].shape[0])
     print("Precomputing partitioning for membrane", mb_idx, "with", face_candidates.shape[0], "faces.")
     part_counter = 0
+
+    # Initialize tqdm progress bar with the total equal to the initial number of face candidates
+    total_len = face_candidates.shape[0]
+    prev_len = 0
+    pbar = tqdm(total=total_len)
     while face_candidates.shape[0] > 0:
         cur_cache_path = cache_path[:-4] + "_partnr" + str(part_counter) + ".npz"
         face_start = face_candidates[0]
-        print("Starting from face", face_start, "with", face_candidates.shape[0], "faces left.")
-        adj_faces, adj_faces_weights = find_adjacent_faces(faces, mb_idx, face_start, edge_to_face_map, max_sampled_points)
+        adj_faces, adj_faces_weights = find_adjacent_faces(faces[mb_idx], mb[:, :3], face_start, max_sampled_points)
         cur_part_verts, cur_part_labels, cur_part_faces, cur_part_normals, cur_part_gts, cur_part_vert_weights = get_partition_from_face_list(
                 mb=mb,
                 faces=faces[mb_idx],
@@ -277,14 +288,14 @@ def compute_and_cache_partitioning(
             "part_vert_weights": cur_part_vert_weights
         }
         append_partitioning_data(cache, list_of_partitioning_data, mb_idx)
-        face_candidates = exclude_faces_from_candidates(adj_faces, face_candidates, adj_faces_weights)
+        face_candidates = exclude_faces_from_candidates(adj_faces, face_candidates, adj_faces_weights, min_gaussian_weight)
         if overfit and part_counter > 2:
             break
-        print("Saving partitioning for membrane", mb_idx, "to cache.", "with", part_counter, "patches.")
-        print("Cache file:", cur_cache_path)
         np.savez(cur_cache_path, **cache)
         part_counter += 1
-
+        pbar.update(total_len - face_candidates.shape[0] - prev_len)
+        prev_len = total_len - face_candidates.shape[0]
+    pbar.close()
 
 def precompute_partitioning(
         membranes: list,
@@ -297,6 +308,7 @@ def precompute_partitioning(
         overfit_mb: bool,
         cache_dir: str=None,
         force_recompute: bool=False
+        min_gaussian_weight: float=0.35
 ):
         """
         Precomputes the partitioning of the membranes into patches.
@@ -318,7 +330,7 @@ def precompute_partitioning(
             # encode both membrane data and self.load_only_sampled_points
             cache_path, cur_cache_path = get_cache_path(cache_dir, mb, max_sampled_points, overfit)
             cache_found = False
-            print(f"Loading partitioning for membrane {mb_idx} from cache.")
+            
 
             # Load from cache if available
             cache_found = load_cached_partitioning(cache_dir, 
@@ -328,9 +340,10 @@ def precompute_partitioning(
                                                    (part_verts, part_labels, part_faces, part_normals, part_mb_idx, part_gt_pos, part_vert_weights), 
                                                    mb_idx, 
                                                    overfit)
-
-
-            if not cache_found:
+            if cache_found:
+                print(f"Loaded partitioning for membrane {mb_idx}.")
+            else:
+                print(f"Computing partitioning for membrane {mb_idx}.")
                 compute_and_cache_partitioning(
                     mb=mb,
                     faces=faces,
@@ -341,7 +354,8 @@ def precompute_partitioning(
                     overfit=overfit,
                     cache_path=cache_path,
                     list_of_partitioning_data=(part_verts, part_labels, part_faces, part_normals, part_mb_idx, part_gt_pos, part_vert_weights),
-                    mb_idx=mb_idx
+                    mb_idx=mb_idx,
+                    min_gaussian_weight=min_gaussian_weight
                 )
             
             if overfit_mb:
