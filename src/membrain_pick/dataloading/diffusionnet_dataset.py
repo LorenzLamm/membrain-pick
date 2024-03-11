@@ -1,24 +1,42 @@
-import cProfile
-import pstats
-
 import os
 from typing import Dict
-from time import time
 
 import numpy as np
+import torch
 from torch.utils.data import Dataset
-import pyvista as pv
 
-from membrain_seg.segmentation.dataloading.data_utils import get_csv_data, store_point_and_vectors_in_vtp
+from membrain_seg.segmentation.dataloading.data_utils import get_csv_data
 
-from scipy.spatial import cKDTree
 from scipy.spatial import KDTree
-from collections import defaultdict
-import hashlib
 from membrain_pick.dataloading.pointcloud_augmentations import get_test_transforms, get_training_transforms
 from membrain_pick.dataloading.mesh_partitioning import precompute_partitioning, compute_nearest_distances
 from membrain_pick.optimization.plane_projection import project_points_to_nearest_hyperplane
 
+
+from membrain_pick.networks import diffusion_net
+
+
+def convert_to_torch(data_dict: dict) -> dict:
+    """
+    Converts a list of numpy arrays to a list of torch tensors.
+
+    Parameters
+    ----------
+    data_list : list
+        A list of numpy arrays.
+
+    Returns
+    -------
+    list
+        A list of torch tensors.
+    """
+    out_dict = {}
+    for key in data_dict:
+        if isinstance(data_dict[key], np.ndarray):
+            out_dict[key] = torch.from_numpy(data_dict[key]).float()
+        else:
+            out_dict[key] = data_dict[key]
+    return out_dict
 
 
 class MemSegDiffusionNetDataset(Dataset):
@@ -51,6 +69,20 @@ class MemSegDiffusionNetDataset(Dataset):
         normalize_features: bool = False,
         contrast: bool = False,
         contrast_with_stats_inversion: bool = False,
+        pixel_size: float = 14.08,
+        k_eig: int = 128,
+
+        diffusion_operator_params: Dict = {
+            "k_eig": 128, # 128
+            "use_precomputed_normals": True,
+            "normalize_verts": False,
+            "hks_features": False,
+            "augment_random_rotate": False,
+            "aggregate_coordinates": False,
+            "random_sample_thickness": False,
+            "use_faces": True,
+            "cache_dir": "/scicore/home/engel0006/GROUP/pool-engel/Lorenz/Mesh_Detection/DiffusionNet/cache_dir",
+        }
 
     
     ) -> None:
@@ -79,6 +111,10 @@ class MemSegDiffusionNetDataset(Dataset):
         self.normalize_features = normalize_features
         self.contrast = contrast
         self.contrast_with_stats_inversion = contrast_with_stats_inversion
+        self.pixel_size = pixel_size
+        self.diffusion_operator_params = diffusion_operator_params
+
+        self.diffusion_operator_params["k_eig"] = k_eig
 
         self.initialize_csv_paths()
         self.load_data()
@@ -93,6 +129,7 @@ class MemSegDiffusionNetDataset(Dataset):
             self.kdtrees = [KDTree(mb[:, :3]) for mb in (self.membranes if self.load_only_sampled_points is None else self.part_verts)]
         else:
             self.kdtrees = [None] * len(self)
+        self.visited_flags = np.zeros(len(self), dtype=bool)
 
 
     def _precompute_partitioning(self) -> None:
@@ -130,6 +167,7 @@ class MemSegDiffusionNetDataset(Dataset):
         Dict[str, np.ndarray]
             A dictionary containing a membrane and its corresponding label.
         """
+        
         if self.load_only_sampled_points is not None:
             idx_dict = {
                 "membrane": self.part_verts[idx].copy(),
@@ -140,6 +178,7 @@ class MemSegDiffusionNetDataset(Dataset):
                 "gt_pos": self.part_gt_pos[idx],
                 "vert_weights": self.part_vert_weights[idx]
             }
+            
             
             # mb_idx = idx // (self.membranes[0].shape[0] // self.load_only_sampled_points)
             # idx_dict = self.select_random_mb_area(mb_idx, idx, self.load_only_sampled_points)
@@ -154,12 +193,16 @@ class MemSegDiffusionNetDataset(Dataset):
                 "vert_weights": np.ones(self.membranes[idx].shape[0])
             }
         idx_dict = self.transforms(idx_dict, keys=["membrane"], mb_tree=self.kdtrees[idx])
+        idx_dict = convert_to_torch(idx_dict)
+        idx_dict = self._convert_to_diffusion_input(idx_dict, overwrite_cache_flag=not self.visited_flags[idx])
+        self.visited_flags[idx] = True
 
-        for key in idx_dict:
-            if key in ["membrane", "label", "faces", "normals", "vert_weights"]:
-                idx_dict[key] = np.expand_dims(idx_dict[key], 0)
-        # idx_dict = self._augment_sample(idx_dict, idx)
+        # for key in idx_dict:
+        #     if key in ["membrane", "label", "faces", "normals", "vert_weights"]:
+        #         idx_dict[key] = np.expand_dims(idx_dict[key], 0)
 
+
+        self.visited_flags[idx] = True
         return idx_dict
     
 
@@ -249,6 +292,85 @@ class MemSegDiffusionNetDataset(Dataset):
         else:
             self.data_paths = self.data_paths[int(len(self.data_paths) * self.train_pct):]
 
+    def _convert_to_diffusion_input(self, 
+                             idx_dict, 
+                             overwrite_cache_flag=False):
+        
+
+        faces = idx_dict["faces"]
+        if not self.diffusion_operator_params["use_faces"]:
+            faces = torch.zeros((0, 3))
+        faces = faces.long()
+
+        verts = idx_dict["membrane"][:, :3] 
+        features = idx_dict["membrane"][:, 3:]
+        
+        feature_len = 10
+        if self.diffusion_operator_params["random_sample_thickness"]:
+            start_sample = np.random.randint(0, features.shape[1] - feature_len)
+            features = features[:, start_sample:start_sample + feature_len]
+        
+        verts_orig = verts.clone()
+        if self.diffusion_operator_params["normalize_verts"]:
+            verts = diffusion_net.geometry.normalize_positions(verts.unsqueeze(0)).squeeze(0)
+        else:
+            verts = verts.contiguous()
+            verts *= self.pixel_size
+            verts -= verts.mean()
+        # Get the geometric operators needed to evaluate DiffusionNet. This routine 
+        # automatically populates a cache, precomputing only if needed.
+        try:
+            _, mass, L, evals, evecs, gradX, gradY = \
+                diffusion_net.geometry.get_operators(
+                    verts=verts,
+                    faces=faces,
+                    k_eig=self.diffusion_operator_params["k_eig"],
+                    op_cache_dir=self.diffusion_operator_params["cache_dir"],
+                    normals=(idx_dict["normals"].float() if self.diffusion_operator_params["use_precomputed_normals"] else None),
+                    overwrite_cache=overwrite_cache_flag
+                )
+        except:
+            return idx_dict
+            
+        
+        if self.diffusion_operator_params["augment_random_rotate"]:
+            verts = diffusion_net.utils.random_rotate_points(verts)
+        
+        if self.diffusion_operator_params["hks_features"]:
+            features_hks = diffusion_net.geometry.compute_hks_autoscale(evals, evecs, 16)
+            features = torch.cat([features, features_hks], dim=1)
+        
+        if self.diffusion_operator_params["aggregate_coordinates"]:
+            features = torch.cat([verts, features], dim=1)
+
+        # Convert all inputs to float32 before passing them to the model
+        features = features.float()  
+        mass = mass.float()
+        L = L.float()
+        evals = evals.float()
+        evecs = evecs.float()
+        gradX = gradX.float()
+        gradY = gradY.float()
+        faces = faces.float()
+
+        diffusion_inputs = {
+            "features": features,
+            "mass": mass,
+            "L": L,
+            "evals": evals,
+            "evecs": evecs,
+            "gradX": gradX,
+            "gradY": gradY,
+            "faces": faces,
+        }
+
+        idx_dict["diffusion_inputs"] = diffusion_inputs
+        idx_dict["verts"] = verts
+        idx_dict["verts_orig"] = verts_orig
+
+        return idx_dict
+
+
 
     def test_loading(self, out_dir, idx: int, times=1) -> None:
         """
@@ -262,15 +384,17 @@ class MemSegDiffusionNetDataset(Dataset):
         from membrain_pick.optimization.plane_projection import make_2D_projection_scatter_plot
         for k in range(times):
             idx_dict = self.__getitem__(idx)
+            mask = idx_dict["label"] != 10.05
             make_2D_projection_scatter_plot(
                 out_file=os.path.join(out_dir, "test%d_%d.png" % (idx, k)),
-                point_cloud=idx_dict["membrane"][0, :, :3],
-                color=idx_dict["membrane"][0, :, 7],
-                s=150
+                point_cloud=idx_dict["membrane"][:, :3][mask],
+                color=idx_dict["membrane"][:, 7][mask],
+                s=3
             )
+            print(np.unique(idx_dict["label"]))
             make_2D_projection_scatter_plot(
                 out_file=os.path.join(out_dir, "test%d_%d_lab.png" % (idx, k)),
-                point_cloud=idx_dict["membrane"][0, :, :3],
-                color=idx_dict["label"][0, :],
-                s=150
+                point_cloud=idx_dict["membrane"][:, :3][mask],
+                color=idx_dict["label"][:][mask],
+                s=3
             )
