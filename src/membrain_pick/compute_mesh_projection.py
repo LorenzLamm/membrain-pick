@@ -105,7 +105,29 @@ def get_tomo_values_along_normal(point, normal, tomo, b_splines=True, steps=(-6,
     return values
 
 
+def compute_positions_along_normals(mesh, steps=(-6, 7), step_size=0.25, verts=None, normals=None):
+    # Get vertices and triangle combinations
+    if verts is None:
+        verts = mesh.points
+    if normals is None:
+        normals = mesh.point_normals
+
+    positions = verts[:, None, :] + normals[:, None, :] * np.arange(steps[0], steps[1])[None, :, None] * step_size
+    return positions
+
+
 def compute_values_along_normals(mesh, tomo, b_splines=True, steps=(-6, 7), step_size=0.25, verts=None, normals=None):
+    # Get vertices and triangle combinations
+    positions = compute_positions_along_normals(mesh, steps=steps, step_size=step_size, verts=verts, normals=normals)
+    positions_shape = positions.shape
+    positions = positions.reshape(-1, 3)
+    positions_transposed = positions.T
+    normal_values = map_coordinates(tomo, positions_transposed, order=3)
+    normal_values = normal_values.reshape(positions_shape[0], positions_shape[1], order='C')
+    return normal_values
+
+
+def compute_values_along_normals_bkp(mesh, tomo, b_splines=True, steps=(-6, 7), step_size=0.25, verts=None, normals=None):
     # Get vertices and triangle combinations
     if verts is None:
         verts = mesh.points
@@ -150,7 +172,7 @@ def convert_seg_to_evenly_spaced_mesh(seg, smoothing=2000, barycentric_area=10, 
     mesh = convert_seg_to_mesh(seg=seg,
                         smoothing=smoothing,
                         voxel_size=1.0)
-    mesh = mesh.decimate(0.9)
+    mesh = mesh.decimate(0.5)
     
     cluster_points = int(mesh.area / barycentric_area)
     clus = pyacvd.Clustering(mesh)
