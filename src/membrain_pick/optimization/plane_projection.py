@@ -56,6 +56,7 @@ def project_point_to_hyperplane(P, P1, P2, P3):
 
 def find_best_fit_plane(point_cloud):
     # Center the point cloud
+    point_cloud = np.array(point_cloud)
     point_cloud_mean = np.mean(point_cloud, axis=0)
     centered_point_cloud = point_cloud - point_cloud_mean
 
@@ -99,6 +100,7 @@ def project_points_to_plane(point_cloud):
 
 def make_2D_projection_scatter_plot(out_file, point_cloud, color=None, s=7.5):
     projected_points = project_points_to_plane(point_cloud)
+    
     plt.figure()
     plt.scatter(projected_points[:, 0], projected_points[:, 1], s=s, c=color, cmap="gray")
     plt.colorbar()
