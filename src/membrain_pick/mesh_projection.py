@@ -1,3 +1,6 @@
+from time import time
+
+
 import os
 import numpy as np
 
@@ -7,112 +10,250 @@ from membrain_seg.tomo_preprocessing.pixel_size_matching.match_pixel_size_seg im
 from membrain_pick.compute_mesh_projection import convert_seg_to_evenly_spaced_mesh, compute_values_along_normals
 from membrain_pick.mesh_class import Mesh
 
-from scipy.ndimage import label
-
-from membrain_pick.bbox_utils import get_expanded_bounding_box, crop_array_with_bounding_box
+from membrain_pick.mesh_projection_utils import get_connected_components, get_cropped_arrays, get_normals_from_face_order, get_connected_components
 
 
-def get_connected_components(seg, only_largest=True):
-    seg = seg > 0
-    seg, _ = label(seg)
-    if only_largest:
-        print(f"Only using the largest connected component in {mb_key} (found {seg.max()} components)") 
-        seg = seg == np.argmax(np.bincount(seg.flat)[1:]) + 1
+def match_tomo_pixel_size(tomo_file, tomo_file_out, pixel_size_out=14.08, pixel_size_in=None, match_file=None, tmp_folder="./temp_mesh_data"):
+    if not os.path.isdir(tmp_folder):
+        os.makedirs(tmp_folder, exist_ok=True)
+
+    if match_file is not None:
+        match_segmentation_pixel_size_to_tomo(
+            seg_path=tomo_file,
+            orig_tomo_path=match_file,
+            output_path=tomo_file_out
+        )
     else:
-        print(f"Found {seg.max()} connected components in {mb_key}")
-    return seg
+        match_pixel_size(
+            input_tomogram=tomo_file,
+            output_path=tomo_file_out,
+            pixel_size_out=pixel_size_out,
+            pixel_size_in=pixel_size_in,
+            disable_smooth=False
+        )
 
-def get_cropped_arrays(seg, tomo, expansion=20):
-    bbox = get_expanded_bounding_box(seg, expansion)
-    cur_seg = crop_array_with_bounding_box(seg, bbox)
-    cur_tomo = crop_array_with_bounding_box(tomo, bbox)
-    return cur_seg, cur_tomo
-
-
-def face_coords(verts, faces):
-    coords = verts[faces]
-    return coords
-def cross(vec_A, vec_B):
-    return np.cross(vec_A, vec_B, dim=-1)
-
-def normalize(x, divide_eps=1e-6, highdim=False):
+def meshes_for_folder_structure(mb_folder: str, 
+                                tomo_folder, 
+                                out_folder,
+                                only_obj=False,
+                                match_size_flag=False,
+                                temp_folder="./temp_mesh_data",
+                                step_numbers=(-6, 7),
+                                step_size=0.25,
+                                mesh_smoothing=1000,
+                                barycentric_area=1.0,
+                                input_pixel_size=None,
+                                output_pixel_size=None,
+                                crop_box_flag=False,
+                                only_largest_component=True,
+                                min_connected_size=1e4):
     """
-    Computes norm^2 of an array of vectors. Given (shape,d), returns (shape) after norm along last dimension
-    """
-    if(len(x.shape) == 1):
-        raise ValueError("called normalize() on single vector of dim " +
-                         str(x.shape) + " are you sure?")
-    if(not highdim and x.shape[-1] > 4):
-        raise ValueError("called normalize() with large last dimension " +
-                         str(x.shape) + " are you sure?")
-    return x / (norm(x, highdim=highdim) + divide_eps).unsqueeze(-1)
+    This assumes the following folder structure:
 
-def norm(x):
-    """
-    Computes norm of an array of vectors. Given (shape,d), returns (shape) after norm along last dimension
-    """
-    return np.linalg.norm(x, dim=len(x.shape) - 1)
+    tomo_folder
+    ├── tomo1.mrc
+    ├── tomo2.mrc
+    └── ...
 
-def assign_vertex_normals_from_face_normals(verts, faces, face_normals):
-    """
-    Assigns a normal to each vertex based on the average of the face normals that share the vertex
-    """
-    vertex_normals = np.zeros(verts.shape, dtype=float)
-    for i in range(verts.shape[0]):
-        faces_with_vertex = np.where(faces == i)[0]
-        vertex_normals[i] = np.mean(face_normals[faces_with_vertex], axis=0)
-    return vertex_normals
+    mb_folder
+    ├── tomo1
+    │   ├── seg1.mrc
+    │   ├── seg2.mrc
+    │   └── ...
+    ├── tomo2
+    │   ├── seg1.mrc
+    │   ├── seg2.mrc
+    │   └── ...
+    └── ...
 
-def face_normals(verts, faces, normalized=True):
-    coords = face_coords(verts, faces)
-    vec_A = coords[:, 1, :] - coords[:, 0, :]
-    vec_B = coords[:, 2, :] - coords[:, 0, :]
+    and will create the following folder structure:
 
-    raw_normal = cross(vec_A, vec_B)
-
-    if normalized:
-        return normalize(raw_normal)
-
-    return raw_normal
-
-def get_normals_from_face_order(mesh):
-    """
-    Get normals from face order
-
-    This means that the normal is given by the cross product of the vectors from the 
-    first vertex to the second and third vertex.
-    This seems to be more accurate than the mesh.point_normals
+    out_folder
+    ├── tomo1
+    │   ├── seg1_mesh_data.csv
+    │   ├── seg1_mesh_faces.csv
+    │   ├── seg1_mesh_normals.csv
+    │   ├── seg1_mesh_normals.vtp
+    │   ├── seg1_psii_pos.csv
+    │   ├── seg1_seg.mrc
+    │   ├── seg1.mrc
+    │   ├── seg2_mesh_data.csv
+    │   ├── seg2_mesh_faces.csv
+    │   ├── seg2_mesh_normals.csv
+    │   ├── seg2_mesh_normals.vtp
+    │   ├── seg2_psii_pos.csv
+    │   ├── seg2_seg.mrc
+    │   ├── seg2.mrc
+    │   └── ...
+    ├── tomo2   
+    │   ├── seg1_mesh_data.csv
+    │   ├── ...
 
     """
-    faces = mesh.faces
-    faces = np.reshape(faces, (-1, 4))
-    faces = faces[:, 1:].copy()
-    points = mesh.points
+    os.makedirs(out_folder, exist_ok=True)
 
-    # Get normals per triangle and assign back to vertices
-    mesh_normals = np.array(face_normals(points, faces))
-    vert_normals = assign_vertex_normals_from_face_normals(points, faces, mesh_normals)
+    tomo_files = [os.path.join(tomo_folder, f) for f in os.listdir(tomo_folder) if f.endswith(".mrc") or f.endswith(".rec")]
+    mb_subfolders = [os.path.join(mb_folder, f) for f in os.listdir(mb_folder) if os.path.isdir(os.path.join(mb_folder, f))]
+    
+    for tomo_file, mb_folder in zip(tomo_files, mb_subfolders):
+        out_tomo_folder = os.path.join(out_folder, os.path.basename(tomo_file).split(".")[0])
+        os.makedirs(out_tomo_folder, exist_ok=True)
 
-    return points, faces, vert_normals
+        if match_size_flag:
+            tomo_file_tmp = os.path.join(temp_folder, os.path.basename(tomo_file))
+            match_tomo_pixel_size(tomo_file, tomo_file_tmp, pixel_size_out=output_pixel_size, pixel_size_in=input_pixel_size)
+            tomo_file = tomo_file_tmp
+        
+        tomo = load_tomogram(tomo_file).data
+
+        mesh_for_tomo_mb_folder(tomo_file=tomo_file,
+                                mb_folder=mb_folder,
+                                out_folder=out_tomo_folder,
+                                tomo=tomo,
+                                only_obj=only_obj,
+                                match_size_flag=match_size_flag,
+                                temp_folder=temp_folder,
+                                step_numbers=step_numbers,
+                                step_size=step_size,
+                                mesh_smoothing=mesh_smoothing,
+                                barycentric_area=barycentric_area,
+                                input_pixel_size=input_pixel_size,
+                                output_pixel_size=output_pixel_size,
+                                crop_box_flag=crop_box_flag,
+                                only_largest_component=only_largest_component, 
+                                min_connected_size=min_connected_size)
+        
+                
+def mesh_for_tomo_mb_folder(tomo_file: str,
+                            mb_folder: str,
+                            out_folder: str,
+                            tomo: np.ndarray = None,
+                            only_obj=False,
+                            match_size_flag=False,
+                            temp_folder="./temp_mesh_data",
+                            step_numbers=(-6, 7),
+                            step_size=0.25,
+                            mesh_smoothing=1000,
+                            barycentric_area=1.0,
+                            input_pixel_size=None,
+                            output_pixel_size=None,
+                            crop_box_flag=False,
+                            only_largest_component=True,
+                            min_connected_size=1e4):
+    """
+    This function assumes the following folder structure:
+
+    mb_folder
+    ├── seg1.mrc
+    ├── seg2.mrc
+    └── ...
+
+    and will create the following folder structure:
+
+    out_folder
+    ├── seg1_mesh_data.csv
+    ├── seg1_mesh_faces.csv
+    ├── seg1_mesh_normals.csv
+    ├── seg1_mesh_normals.vtp
+    ├── seg1_psii_pos.csv
+    ├── seg1_seg.mrc
+    ├── seg1.mrc
+    ├── ...
+    """
+
+    os.makedirs(out_folder, exist_ok=True)
+
+    mb_files = [os.path.join(mb_folder, f) for f in os.listdir(mb_folder) if f.endswith(".mrc")]
+
+    if match_size_flag:
+        if tomo is None:
+            tomo_file_tmp = os.path.join(temp_folder, os.path.basename(tomo_file))
+            match_tomo_pixel_size(tomo_file, tomo_file_tmp, pixel_size_out=output_pixel_size, pixel_size_in=input_pixel_size)
+            tomo_file = tomo_file_tmp
+    
+    if tomo is None:
+        tomo = load_tomogram(tomo_file).data
+
+    for mb_file in mb_files:
+        mesh_for_single_mb_file(mb_file=mb_file,
+                                tomo_file=tomo_file,
+                                out_folder=out_folder,
+                                tomo=tomo,
+                                only_obj=only_obj,
+                                match_size_flag=match_size_flag,
+                                temp_folder=temp_folder,
+                                step_numbers=step_numbers,
+                                step_size=step_size,
+                                mesh_smoothing=mesh_smoothing,
+                                barycentric_area=barycentric_area,
+                                input_pixel_size=input_pixel_size,
+                                output_pixel_size=output_pixel_size,
+                                crop_box_flag=crop_box_flag,
+                                only_largest_component=only_largest_component, 
+                                min_connected_size=min_connected_size)
 
 
+def mesh_for_single_mb_file(mb_file: str,
+                            tomo_file: str,
+                            out_folder: str,
+                            tomo: np.ndarray = None,
+                            only_obj=False,
+                            match_size_flag=False,
+                            temp_folder="./temp_mesh_data",
+                            step_numbers=(-6, 7),
+                            step_size=0.25,
+                            mesh_smoothing=1000,
+                            barycentric_area=1.0,
+                            input_pixel_size=None,
+                            output_pixel_size=None,
+                            crop_box_flag=False,
+                            only_largest_component=True,
+                            min_connected_size=1e4):
+    """
+    """
+    os.makedirs(out_folder, exist_ok=True)
 
-def process_mb_file(mb_file, 
+    if match_size_flag:
+        if tomo is None:
+            tomo_file_tmp = os.path.join(temp_folder, os.path.basename(tomo_file))
+            match_tomo_pixel_size(tomo_file, tomo_file_tmp, pixel_size_out=output_pixel_size, pixel_size_in=input_pixel_size)
+            tomo_file = tomo_file_tmp
+
+        mb_file_tmp = os.path.join(temp_folder, os.path.basename(mb_file))
+        match_tomo_pixel_size(mb_file, mb_file_tmp, pixel_size_out=output_pixel_size, pixel_size_in=input_pixel_size, match_file=tomo_file)
+        mb_file = mb_file_tmp
+
+    if tomo is None:
+        tomo = load_tomogram(tomo_file).data
+
+    convert_to_mesh(mb_file, 
                     tomo_file, 
                     out_folder, 
-                    out_file=None, 
+                    tomo=tomo, 
+                    only_obj=only_obj,
+                    step_numbers=step_numbers,
+                    step_size=step_size,
+                    mesh_smoothing=mesh_smoothing,
+                    barycentric_area=barycentric_area,
+                    crop_box_flag=crop_box_flag,
+                    only_largest_component=only_largest_component, 
+                    min_connected_size=min_connected_size)
+
+
+def convert_to_mesh(mb_file, 
+                    tomo_file, 
+                    out_folder, 
                     tomo=None, 
+                    only_obj=False,
                     step_numbers=(-6, 7),
                     step_size=0.25,
                     mesh_smoothing=1000,
                     barycentric_area=1.0,
-                    recompute_matching=False, 
-                    match_size_flag=False, 
-                    input_pixel_size=None, 
-                    output_pixel_size=None, 
                     crop_box_flag=False,
                     only_largest_component=True, 
                     min_connected_size=1e4):
+    
+    
     print(f"Processing {mb_file}")
     mb_key = os.path.basename(mb_file).split(".")[0]
     seg = load_tomogram(mb_file).data
@@ -127,7 +268,7 @@ def process_mb_file(mb_file,
     for k in range(1, seg.max() + 1):
         if np.sum(seg == k) < min_connected_size:
             continue
-        print(f"Processing sub-seg {k} of {mb_key}. Total seg count {seg.max()}")
+        print(f"Processing sub-seg {k} of {mb_key}. Total seg count {float(seg.max())}")
         sub_seg_count += 1
         cur_mb_key = mb_key + f"_{sub_seg_count}"
 
@@ -143,147 +284,188 @@ def process_mb_file(mb_file,
         
         points, faces, point_normals = get_normals_from_face_order(mesh)
 
-        normal_values = compute_values_along_normals(mesh=mesh, 
-                                                     tomo=cur_tomo, 
-                                                     steps=step_numbers, 
-                                                     step_size=step_size, 
-                                                     verts=points,
-                                                     normals=point_normals)
-        print("Computed values along normals")
+        if not only_obj:
+            normal_values = compute_values_along_normals(mesh=mesh, 
+                                                        tomo=cur_tomo, 
+                                                        steps=step_numbers, 
+                                                        step_size=step_size, 
+                                                        verts=points,
+                                                        normals=point_normals)
+            print("Computed values along normals")
 
         out_data = np.concatenate([mesh.points, normal_values], axis=1)
         out_file = os.path.join(out_folder, cur_mb_key + "_mesh_data.csv")
-        out_file_pos = os.path.join(out_folder, cur_mb_key + "_psii_pos.csv")
         out_file_faces = os.path.join(out_folder, cur_mb_key + "_mesh_faces.csv")
         out_file_normals = os.path.join(out_folder, cur_mb_key + "_mesh_normals.csv")
-
-mb_folder = "/scicore/home/engel0006/GROUP/pool-engel/Lorenz/2D_projections/data_Sofie/thylakoids/segs"
-mb_folder = "/scicore/home/engel0006/GROUP/pool-engel/Sofie/subtomo/FaRLiP/FRL_PBS/seg/221024_FRL_tomo03/"
-mb_folder = "/scicore/home/engel0006/GROUP/pool-visprot/Sofie/PSII_DragonFly/picking/drgnfly_picks/deepfinder/seg/"
-mb_folder = "/scicore/home/engel0006/GROUP/pool-engel/Lorenz/Zunlong_Covid/segmentations"
-mb_folder = "/scicore/home/engel0006/GROUP/pool-engel/221123_ETH_Krios2/Thala_WT/Amira/Tomo_02/"
-# mb_folder = "/scicore/home/engel0006/GROUP/pool-engel/Lorenz/4Lorenz/Tomo_1/membranes/"
-# mb_folder = "/scicore/home/engel0006/GROUP/pool-engel/Lorenz/pipeline_spinach/tomograms/Tomo_17/membranes"
-# mb_folder = "/scicore/home/engel0006/GROUP/pool-visprot/Florent/Membrain_seg/Out/"
-tomo_file = "/scicore/home/engel0006/GROUP/pool-engel/Lorenz/2D_projections/data_Sofie/thylakoids/634.mrc"
-tomo_file = "/scicore/home/engel0006/GROUP/pool-engel/Lorenz/Zunlong_Covid/TS_004_dose-filt_lp50_bin8.rec"
-tomo_file = "/scicore/home/engel0006/GROUP/pool-engel/221123_ETH_Krios2/Thala_WT/tomo_02/tomo_02_cryocare.rec"
-# tomo_file = "/scicore/home/engel0006/GROUP/pool-engel/Lorenz/4Lorenz/Tomo_1/Tomo1L1_bin4.rec"
-# tomo_file = "/scicore/home/engel0006/GROUP/pool-engel/Lorenz/pipeline_spinach/tomograms/Tomo_17/tomo17_bin4_denoised.mrc"
-# tomo_file = "/scicore/home/engel0006/GROUP/pool-visprot/Common/bin4_cryocare/179.mrc"
-# tomo_file = "/scicore/home/engel0006/GROUP/pool-engel/Sofie/subtomo/FaRLiP/FRL_PBS/bin4_cryocare/3.rec"
-out_folder = "/scicore/home/engel0006/GROUP/pool-engel/Lorenz/2D_projections/mesh_data/Manon_Pyshell"
-temp_folder = "/scicore/home/engel0006/GROUP/pool-engel/Lorenz/2D_projections/mesh_data/temp"
-os.makedirs(out_folder, exist_ok=True)
-
-match_size_flag = False
-recompute_matching = False
-
-mb_files = []
-for filename in os.listdir(mb_folder):
-    # if "179_Mito_labels" not in filename:
-    #         continue
-    if not filename.endswith(".mrc"):
-        continue
-    mb_file = os.path.join(mb_folder, filename)
-    mb_files.append(mb_file)
-
-def crop_file(filename, out_file):
-    print(f"Cropping {filename}")
-    tomo = load_tomogram(filename).data
-    bbox = get_expanded_bounding_box(tomo > 0, 20)
-    cropped_tomo = crop_array_with_bounding_box(tomo, bbox)
-    store_tomogram(out_file, cropped_tomo)
-
-if match_size_flag:
-    tomo_file_out = os.path.join(temp_folder, "tomo_matched.mrc")
-    print(f"Matching pixel size of {tomo_file} to 14.08 A")
-    if not os.path.exists(tomo_file_out) or recompute_matching:
-        match_pixel_size(
-            input_tomogram=tomo_file,
-            output_path=tomo_file_out,
-            pixel_size_out=14.08,
-            pixel_size_in=None,
-            disable_smooth=False
-        )
-    # crop_file(tomo_file_out, tomo_file_out)
-    tomo_file = tomo_file_out
-    new_mb_files = []
-    for mb_file in mb_files:
-        print(f"Matching pixel size of {mb_file} to {tomo_file}")
-        mb_out = os.path.join(temp_folder, os.path.basename(mb_file))
-        new_mb_files.append(mb_out)
-        if not os.path.exists(mb_out) or recompute_matching:
-            match_segmentation_pixel_size_to_tomo(
-                seg_path=mb_file,
-                orig_tomo_path=tomo_file,
-                output_path=mb_out
-            )
-            # crop_file(mb_out, mb_out)
-
-    mb_files = new_mb_files
-
-print(f"Loading tomo {tomo_file}")
-tomo = load_tomogram(tomo_file).data
-
-for mb_file in mb_files:
-    
-    # if "TS_004_" not in mb_file:
-    #     continue
-    print(f"Processing {mb_file}")
-    # if "221024_Ctherm_FRL_tomo_03_cut_all_components_29.mrc" not in mb_file:
-    #     continue
-    if "_all.mrc" in mb_file or "_dirty_seg" in mb_file:
-        continue
-    mb_key = os.path.basename(mb_file).split(".")[0]
-    seg = load_tomogram(mb_file).data
-
-    # get connceted components
-    seg = seg > 0
-    seg, _ = label(seg)
-    
-    print(f"Found {seg.max()} connected components in {mb_key}")
-
-    sub_seg_count = 0
-    for k in range(1, seg.max() + 1):
-        if np.sum(seg == k) < 10000:
-            continue
-        print(f"Processing sub-seg {k} of {mb_key}. Total seg count {seg.max()}")
-        sub_seg_count += 1
-        mb_key = mb_key + f"_{sub_seg_count}"
-
-        bbox = get_expanded_bounding_box(seg == k, 20)
-        cur_seg = crop_array_with_bounding_box(seg, bbox)
-        cur_tomo = crop_array_with_bounding_box(tomo, bbox)
-
-        mesh = convert_seg_to_evenly_spaced_mesh(seg=cur_seg,
-                            smoothing=2000,
-                            barycentric_area=1.5)
-        print("Converted to mesh")
-        mesh.compute_normals(point_normals=True)
-        print("Computed normals")
-        normal_values = compute_values_along_normals(mesh=mesh, tomo=cur_tomo, steps=(0, 10), step_size=0.5, normals=mesh.point_normals * -1)
-        print("Computed values along normals")
-        faces = mesh.faces
-        faces = np.reshape(faces, (-1, 4))
-        faces = faces[:, 1:]
-        print(faces.shape, "<- faces shape")
-
-
-        out_data = np.concatenate([mesh.points, normal_values], axis=1)
-        out_file = os.path.join(out_folder, mb_key + "_mesh_data.csv")
-        out_file_pos = os.path.join(out_folder, mb_key + "_psii_pos.csv")
-        out_file_faces = os.path.join(out_folder, mb_key + "_mesh_faces.csv")
-        out_file_normals = os.path.join(out_folder, mb_key + "_mesh_normals.csv")
         out_file_normals_vtp = os.path.join(out_folder, mb_key + "_mesh_normals.vtp")
-        store_array_in_csv(out_file, out_data)
-        store_array_in_csv(out_file_faces, faces)
-        store_array_in_csv(out_file_normals, mesh.point_normals*(-1))
 
-        store_point_and_vectors_in_vtp(out_file_normals_vtp, mesh.points, mesh.point_normals, in_scalars=[normal_values[:, k] for k in range(normal_values.shape[1])])
+        if not only_obj:
+            store_array_in_csv(out_file, out_data)
+            store_array_in_csv(out_file_faces, faces)
+            store_array_in_csv(out_file_normals, mesh.point_normals*(-1))
+
+            store_point_and_vectors_in_vtp(out_file_normals_vtp, mesh.points, mesh.point_normals, in_scalars=[normal_values[:, k] for k in range(normal_values.shape[1])])
 
         mesh = Mesh(vertices=mesh.points, triangle_combos=faces+1)
         mesh.store_in_file(out_file.replace(".csv", ".obj"))
         store_tomogram(out_file.replace(".csv", ".mrc"), cur_tomo)
         store_tomogram(out_file.replace(".csv", "_seg.mrc"), cur_seg)
-        print("HI")
+
+
+
+def main():
+    mb_folder = "/scicore/home/engel0006/GROUP/pool-engel/Lorenz/4Lorenz/Tomo_1/membranes/"        
+    tomo_file = "/scicore/home/engel0006/GROUP/pool-engel/Lorenz/4Lorenz/Tomo_1/Tomo1L1_bin4.rec"
+    out_folder = "/scicore/home/engel0006/GROUP/pool-engel/Lorenz/2D_projections/mesh_data/Chlamy_old"
+    temp_folder = "/scicore/home/engel0006/GROUP/pool-engel/Lorenz/2D_projections/mesh_data/Chlamy_old/temp"
+
+    match_size_flag = False
+    recompute_matching = False
+    crop = True
+
+    mesh_for_tomo_mb_folder(
+        tomo_file=tomo_file,
+        mb_folder=mb_folder,
+        out_folder=out_folder,
+        match_size_flag=match_size_flag,
+        temp_folder=temp_folder,
+        crop_box_flag=crop
+    )
+
+
+
+
+
+if __name__ == "__main__":
+    main()
+
+# mb_folder = "/scicore/home/engel0006/GROUP/pool-engel/Lorenz/2D_projections/data_Sofie/thylakoids/segs"
+# mb_folder = "/scicore/home/engel0006/GROUP/pool-engel/Sofie/subtomo/FaRLiP/FRL_PBS/seg/221024_FRL_tomo03/"
+# mb_folder = "/scicore/home/engel0006/GROUP/pool-visprot/Sofie/PSII_DragonFly/picking/drgnfly_picks/deepfinder/seg/"
+# mb_folder = "/scicore/home/engel0006/GROUP/pool-engel/Lorenz/Zunlong_Covid/segmentations"
+# mb_folder = "/scicore/home/engel0006/GROUP/pool-engel/221123_ETH_Krios2/Thala_WT/Amira/Tomo_02/"
+# # mb_folder = "/scicore/home/engel0006/GROUP/pool-engel/Lorenz/4Lorenz/Tomo_1/membranes/"
+# # mb_folder = "/scicore/home/engel0006/GROUP/pool-engel/Lorenz/pipeline_spinach/tomograms/Tomo_17/membranes"
+# # mb_folder = "/scicore/home/engel0006/GROUP/pool-visprot/Florent/Membrain_seg/Out/"
+# tomo_file = "/scicore/home/engel0006/GROUP/pool-engel/Lorenz/2D_projections/data_Sofie/thylakoids/634.mrc"
+# tomo_file = "/scicore/home/engel0006/GROUP/pool-engel/Lorenz/Zunlong_Covid/TS_004_dose-filt_lp50_bin8.rec"
+# tomo_file = "/scicore/home/engel0006/GROUP/pool-engel/221123_ETH_Krios2/Thala_WT/tomo_02/tomo_02_cryocare.rec"
+# # tomo_file = "/scicore/home/engel0006/GROUP/pool-engel/Lorenz/4Lorenz/Tomo_1/Tomo1L1_bin4.rec"
+# # tomo_file = "/scicore/home/engel0006/GROUP/pool-engel/Lorenz/pipeline_spinach/tomograms/Tomo_17/tomo17_bin4_denoised.mrc"
+# # tomo_file = "/scicore/home/engel0006/GROUP/pool-visprot/Common/bin4_cryocare/179.mrc"
+# # tomo_file = "/scicore/home/engel0006/GROUP/pool-engel/Sofie/subtomo/FaRLiP/FRL_PBS/bin4_cryocare/3.rec"
+# out_folder = "/scicore/home/engel0006/GROUP/pool-engel/Lorenz/2D_projections/mesh_data/Manon_Pyshell"
+# temp_folder = "/scicore/home/engel0006/GROUP/pool-engel/Lorenz/2D_projections/mesh_data/temp"
+# os.makedirs(out_folder, exist_ok=True)
+
+# match_size_flag = False
+# recompute_matching = False
+
+# mb_files = []
+# for filename in os.listdir(mb_folder):
+#     # if "179_Mito_labels" not in filename:
+#     #         continue
+#     if not filename.endswith(".mrc"):
+#         continue
+#     mb_file = os.path.join(mb_folder, filename)
+#     mb_files.append(mb_file)
+
+# def crop_file(filename, out_file):
+#     print(f"Cropping {filename}")
+#     tomo = load_tomogram(filename).data
+#     bbox = get_expanded_bounding_box(tomo > 0, 20)
+#     cropped_tomo = crop_array_with_bounding_box(tomo, bbox)
+#     store_tomogram(out_file, cropped_tomo)
+
+# if match_size_flag:
+#     tomo_file_out = os.path.join(temp_folder, "tomo_matched.mrc")
+#     print(f"Matching pixel size of {tomo_file} to 14.08 A")
+#     if not os.path.exists(tomo_file_out) or recompute_matching:
+#         match_pixel_size(
+#             input_tomogram=tomo_file,
+#             output_path=tomo_file_out,
+#             pixel_size_out=14.08,
+#             pixel_size_in=None,
+#             disable_smooth=False
+#         )
+#     # crop_file(tomo_file_out, tomo_file_out)
+#     tomo_file = tomo_file_out
+#     new_mb_files = []
+#     for mb_file in mb_files:
+#         print(f"Matching pixel size of {mb_file} to {tomo_file}")
+#         mb_out = os.path.join(temp_folder, os.path.basename(mb_file))
+#         new_mb_files.append(mb_out)
+#         if not os.path.exists(mb_out) or recompute_matching:
+#             match_segmentation_pixel_size_to_tomo(
+#                 seg_path=mb_file,
+#                 orig_tomo_path=tomo_file,
+#                 output_path=mb_out
+#             )
+#             # crop_file(mb_out, mb_out)
+
+#     mb_files = new_mb_files
+
+# print(f"Loading tomo {tomo_file}")
+# tomo = load_tomogram(tomo_file).data
+
+# for mb_file in mb_files:
+    
+#     # if "TS_004_" not in mb_file:
+#     #     continue
+#     print(f"Processing {mb_file}")
+#     # if "221024_Ctherm_FRL_tomo_03_cut_all_components_29.mrc" not in mb_file:
+#     #     continue
+#     if "_all.mrc" in mb_file or "_dirty_seg" in mb_file:
+#         continue
+#     mb_key = os.path.basename(mb_file).split(".")[0]
+#     seg = load_tomogram(mb_file).data
+
+#     # get connceted components
+#     seg = seg > 0
+#     seg, _ = label(seg)
+    
+#     print(f"Found {seg.max()} connected components in {mb_key}")
+
+#     sub_seg_count = 0
+#     for k in range(1, seg.max() + 1):
+#         if np.sum(seg == k) < 10000:
+#             continue
+#         print(f"Processing sub-seg {k} of {mb_key}. Total seg count {seg.max()}")
+#         sub_seg_count += 1
+#         mb_key = mb_key + f"_{sub_seg_count}"
+
+#         bbox = get_expanded_bounding_box(seg == k, 20)
+#         cur_seg = crop_array_with_bounding_box(seg, bbox)
+#         cur_tomo = crop_array_with_bounding_box(tomo, bbox)
+
+#         mesh = convert_seg_to_evenly_spaced_mesh(seg=cur_seg,
+#                             smoothing=2000,
+#                             barycentric_area=1.5)
+#         print("Converted to mesh")
+#         mesh.compute_normals(point_normals=True)
+#         print("Computed normals")
+#         normal_values = compute_values_along_normals(mesh=mesh, tomo=cur_tomo, steps=(0, 10), step_size=0.5, normals=mesh.point_normals * -1)
+#         print("Computed values along normals")
+#         faces = mesh.faces
+#         faces = np.reshape(faces, (-1, 4))
+#         faces = faces[:, 1:]
+#         print(faces.shape, "<- faces shape")
+
+
+#         out_data = np.concatenate([mesh.points, normal_values], axis=1)
+#         out_file = os.path.join(out_folder, mb_key + "_mesh_data.csv")
+#         out_file_pos = os.path.join(out_folder, mb_key + "_psii_pos.csv")
+#         out_file_faces = os.path.join(out_folder, mb_key + "_mesh_faces.csv")
+#         out_file_normals = os.path.join(out_folder, mb_key + "_mesh_normals.csv")
+#         out_file_normals_vtp = os.path.join(out_folder, mb_key + "_mesh_normals.vtp")
+#         store_array_in_csv(out_file, out_data)
+#         store_array_in_csv(out_file_faces, faces)
+#         store_array_in_csv(out_file_normals, mesh.point_normals*(-1))
+
+#         store_point_and_vectors_in_vtp(out_file_normals_vtp, mesh.points, mesh.point_normals, in_scalars=[normal_values[:, k] for k in range(normal_values.shape[1])])
+
+#         mesh = Mesh(vertices=mesh.points, triangle_combos=faces+1)
+#         mesh.store_in_file(out_file.replace(".csv", ".obj"))
+#         store_tomogram(out_file.replace(".csv", ".mrc"), cur_tomo)
+#         store_tomogram(out_file.replace(".csv", "_seg.mrc"), cur_seg)
+#         print("HI")
