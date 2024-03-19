@@ -71,17 +71,7 @@ class DiffusionNetModule(pl.LightningModule):
 
     def forward(self, batch):
         # Forward pass through DiffusionNet
-        diffusion_inputs = batch["diffusion_inputs"]
-        features = diffusion_inputs["features"]
-        mass = diffusion_inputs["mass"]
-        L = diffusion_inputs["L"]
-        evals = diffusion_inputs["evals"]
-        evecs = diffusion_inputs["evecs"]
-        gradX = diffusion_inputs["gradX"]
-        gradY = diffusion_inputs["gradY"]
-        edges = diffusion_inputs["edges"]
-        faces = diffusion_inputs["faces"]
-        verts_orig = batch["verts_orig"]
+        features, mass, L, evals, evecs, gradX, gradY, edges, faces, verts_orig = unpack_batch(batch)
 
         out = {
             "mse": self.model(features, mass, L, evals, evecs, gradX, gradY, edges, faces)
@@ -148,3 +138,18 @@ class DiffusionNetModule(pl.LightningModule):
         loss = self.criterion(preds, targets, weights)
         # Log test loss
         self.log('test_loss', loss)
+
+
+def unpack_batch(batch):
+    diffusion_inputs = batch["diffusion_inputs"]
+    features = diffusion_inputs["features"]
+    mass = diffusion_inputs["mass"]
+    L = diffusion[inputs]["L"]
+    evals = diffusion_inputs["evals"]
+    evecs = diffusion_inputs["evecs"]
+    gradX = diffusion_inputs["gradX"]
+    gradY = diffusion_inputs["gradY"]
+    edges = diffusion_inputs["edges"]
+    faces = diffusion_inputs["faces"]
+    verts_orig = batch["verts_orig"]
+    return features, mass, L, evals, evecs, gradX, gradY, edges, faces, verts_orig
