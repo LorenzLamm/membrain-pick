@@ -6,7 +6,7 @@ class MeanShift_loss(torch.nn.Module):
         super(MeanShift_loss, self).__init__()
         self.use_loss = use_loss
 
-    def forward(self, true_pos, pred_pos, dummy=None, print_flag=False):
+    def forward(self, true_pos, pred_pos, weight=None, dummy=None, print_flag=False):
         
         dists = torch.cdist(true_pos.float(), pred_pos.float())
         mins, _ = torch.min(dists, dim=1)
