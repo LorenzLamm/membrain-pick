@@ -49,8 +49,6 @@ class MemSegDiffusionNetDataset(Dataset):
     def __init__(
         self,
         csv_folder: str,
-        pointcloud: bool = False,
-        mesh_data: bool = False,
         train: bool = False,
         train_pct: float = 0.8,
         max_tomo_shape: int = 928,
@@ -89,10 +87,7 @@ class MemSegDiffusionNetDataset(Dataset):
         """
         Constructs all the necessary attributes for the CryoETMemSegDataset object.
         """
-        assert pointcloud ^ mesh_data, "Either pointcloud or mesh_data must be True"
         self.train = train
-        self.pointcloud = pointcloud
-        self.mesh_data = mesh_data
         self.train_pct = train_pct
         self.csv_folder = csv_folder
         self.max_tomo_shape = max_tomo_shape
@@ -196,13 +191,6 @@ class MemSegDiffusionNetDataset(Dataset):
         idx_dict = convert_to_torch(idx_dict)
         idx_dict = self._convert_to_diffusion_input(idx_dict, overwrite_cache_flag=not self.visited_flags[idx])
         self.visited_flags[idx] = True
-
-        # for key in idx_dict:
-        #     if key in ["membrane", "label", "faces", "normals", "vert_weights"]:
-        #         idx_dict[key] = np.expand_dims(idx_dict[key], 0)
-
-
-        self.visited_flags[idx] = True
         return idx_dict
     
 
@@ -217,7 +205,6 @@ class MemSegDiffusionNetDataset(Dataset):
         """
         if self.load_only_sampled_points is not None:
             return len(self.part_verts)
-            # return len(self.membranes) * (self.membranes[0].shape[0] // self.load_only_sampled_points)
         return len(self.membranes)
 
     def load_data(self) -> None:
