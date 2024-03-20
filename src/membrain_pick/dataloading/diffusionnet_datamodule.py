@@ -3,6 +3,44 @@ from typing import Optional
 import pytorch_lightning as pl
 from torch.utils.data import DataLoader, random_split
 from membrain_pick.dataloading.diffusionnet_dataset import MemSegDiffusionNetDataset
+import torch
+from torch.utils.data.dataloader import default_collate
+import numpy as np
+
+
+def custom_collate(batch):
+    """Custom collate function to handle a complex data structure.
+    
+    Each sample is a dictionary containing numpy arrays and another dictionary
+    with sparse matrices. Since we're using a batch size of 1, this function
+    simplifies the handling of these structures.
+
+    Args:
+        batch: A list of samples, where each sample is the complex data structure
+               described above.
+    
+    Returns:
+        Processed batch ready for model input.
+    """
+    # Unpack the single sample from the batch
+    sample = batch[0]
+    # Initialize a new dictionary to store the processed sample
+    processed_sample = {}
+
+    for key, value in sample.items():
+        if isinstance(value, np.ndarray):
+            # Convert numpy arrays to tensors
+            processed_sample[key] = torch.tensor(value)
+        elif isinstance(value, dict):
+            # For the nested dictionary, we assume it contains sparse matrices
+            # and pass it through directly without modifications
+            processed_sample[key] = {subkey: subvalue for subkey, subvalue in value.items()}
+        else:
+            # Directly pass through any other types of values
+            processed_sample[key] = value
+
+    return processed_sample
+
 
 
 class MemSegDiffusionNetDataModule(pl.LightningDataModule):
@@ -64,6 +102,7 @@ class MemSegDiffusionNetDataModule(pl.LightningDataModule):
             self.val_dataset = MemSegDiffusionNetDataset(
                 csv_folder=self.csv_folder_val,
                 train=False,
+                train_pct=0.0,
                 load_only_sampled_points=self.load_n_sampled_points,
                 max_tomo_shape=self.max_tomo_shape,
                 overfit=self.overfit,
@@ -83,6 +122,7 @@ class MemSegDiffusionNetDataModule(pl.LightningDataModule):
             shuffle=True,
             num_workers=self.num_workers,
             pin_memory=self.pin_memory,
+            collate_fn=custom_collate,
         )
 
     def val_dataloader(self):
@@ -92,4 +132,6 @@ class MemSegDiffusionNetDataModule(pl.LightningDataModule):
             shuffle=False,
             num_workers=self.num_workers,
             pin_memory=self.pin_memory,
+            collate_fn=custom_collate,
         )
+    
