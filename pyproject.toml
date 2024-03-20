@@ -37,6 +37,10 @@ dependencies = [
     "mrcfile",
     "pyvista",
     "vtk",
+    "pyacvd",
+    "scikit-learn",
+    "potpourri3d",
+    "robust-laplacian"
 ]
 
 
