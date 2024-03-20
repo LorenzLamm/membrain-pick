@@ -23,7 +23,6 @@ class DiffusionNetModule(pl.LightningModule):
                  dropout=True, 
                  with_gradient_features=True, 
                  with_gradient_rotations=True, 
-                 lstm_first=False, 
                  device="cuda:0", 
                  fixed_time=None, 
                  one_D_conv_first=False, 
@@ -41,7 +40,6 @@ class DiffusionNetModule(pl.LightningModule):
                                   dropout=dropout, 
                                   with_gradient_features=with_gradient_features, 
                                   with_gradient_rotations=with_gradient_rotations, 
-                                  lstm_first=lstm_first, 
                                   device=device, 
                                   fixed_time=fixed_time, 
                                   one_D_conv_first=one_D_conv_first, 
@@ -58,23 +56,26 @@ class DiffusionNetModule(pl.LightningModule):
                         margin=mean_shift_margin,
                         device=device,
                     )
+        self.define_loss()
 
     def define_loss(self):
         mse_loss_fn = weighted_MSELoss()
-        if self.mean_shift_output:
-            self.ms_loss = MeanShift_loss()
         self.criteria = {
             "mse": mse_loss_fn,
-            "ms": self.ms_loss
         }
+        if self.mean_shift_output:
+            self.ms_loss = MeanShift_loss()
+            self.criteria["ms"] = self.ms_loss
         self.criterion = CombinedLoss(self.criteria)
 
     def forward(self, batch):
         # Forward pass through DiffusionNet
-        features, mass, L, evals, evecs, gradX, gradY, edges, faces, verts_orig = unpack_batch(batch)
+        features, mass, L, evals, evecs, gradX, gradY, faces, verts_orig = unpack_batch(batch)
+        if features is None:
+            return None
 
         out = {
-            "mse": self.model(features, mass, L, evals, evecs, gradX, gradY, edges, faces)
+            "mse": self.model(features, mass, L, evals, evecs, gradX, gradY, faces)
         }
         if self.mean_shift_output:
             out_ms = self.ms_module.mean_shift_for_seeds(
@@ -92,7 +93,6 @@ class DiffusionNetModule(pl.LightningModule):
         return optimizer
  
     def training_step(self, batch, batch_idx):
-        # Unpack data
         targets = {
             "mse": batch["label"],
             "ms": batch["gt_pos"]
@@ -103,6 +103,8 @@ class DiffusionNetModule(pl.LightningModule):
         }
         
         preds = self(batch)
+        if preds is None:
+            return None
         
         # Calculate loss
         loss = self.criterion(preds, targets, weights)
@@ -120,6 +122,9 @@ class DiffusionNetModule(pl.LightningModule):
             "ms": torch.ones_like(batch["gt_pos"]) # might need to change this
         }
         preds = self(batch)
+        if preds is None:
+            return None
+
         loss = self.criterion(preds, targets, weights)
         # Log validation loss
         self.log('val_loss', loss)
@@ -141,15 +146,17 @@ class DiffusionNetModule(pl.LightningModule):
 
 
 def unpack_batch(batch):
+    if "diffusion_inputs" not in batch:
+        return None, None, None, None, None, None, None, None, None
+    print(batch.keys() ," <-- sdknw")
     diffusion_inputs = batch["diffusion_inputs"]
     features = diffusion_inputs["features"]
     mass = diffusion_inputs["mass"]
-    L = diffusion[inputs]["L"]
+    L = diffusion_inputs["L"]
     evals = diffusion_inputs["evals"]
     evecs = diffusion_inputs["evecs"]
     gradX = diffusion_inputs["gradX"]
     gradY = diffusion_inputs["gradY"]
-    edges = diffusion_inputs["edges"]
     faces = diffusion_inputs["faces"]
     verts_orig = batch["verts_orig"]
-    return features, mass, L, evals, evecs, gradX, gradY, edges, faces, verts_orig
+    return features, mass, L, evals, evecs, gradX, gradY, faces, verts_orig
