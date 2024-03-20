@@ -1,8 +1,6 @@
 import numpy as np
-from scipy.spatial import KDTree
 from sklearn.neighbors import NearestNeighbors
 import csv
-from time import time
 
 
 

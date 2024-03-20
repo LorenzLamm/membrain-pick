@@ -4,9 +4,10 @@ from time import time
 import os
 import numpy as np
 
-from membrain_seg.segmentation.dataloading.data_utils import load_tomogram, store_tomogram, store_array_in_csv, store_point_and_vectors_in_vtp
+from membrain_seg.segmentation.dataloading.data_utils import load_tomogram, store_tomogram
 from membrain_seg.tomo_preprocessing.pixel_size_matching.match_pixel_size import match_pixel_size
 from membrain_seg.tomo_preprocessing.pixel_size_matching.match_pixel_size_seg import match_segmentation_pixel_size_to_tomo
+from membrain_pick.dataloading.data_utils import store_array_in_csv, store_point_and_vectors_in_vtp
 from membrain_pick.compute_mesh_projection import convert_seg_to_evenly_spaced_mesh, compute_values_along_normals
 from membrain_pick.mesh_class import Mesh
 

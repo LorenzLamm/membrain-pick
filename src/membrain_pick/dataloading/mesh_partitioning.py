@@ -307,7 +307,7 @@ def precompute_partitioning(
         overfit: bool,
         overfit_mb: bool,
         cache_dir: str=None,
-        force_recompute: bool=False
+        force_recompute: bool=False,
         min_gaussian_weight: float=0.35
 ):
         """
