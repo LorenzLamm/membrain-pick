@@ -56,6 +56,7 @@ class MemSegDiffusionNetDataset(Dataset):
         overfit: bool = False,
         cache_dir: str = "/scicore/home/engel0006/GROUP/pool-engel/Lorenz/2D_projections/diffusion_net_training/mesh_cache2",
         force_recompute: bool = False,
+        augment_all: bool = True,
         overfit_mb: bool = False,
         augment_noise: bool = False,
         gaussian_smoothing: bool = False,
@@ -96,6 +97,7 @@ class MemSegDiffusionNetDataset(Dataset):
         self.overfit_mb = overfit_mb
         self.cache_dir = cache_dir
         self.force_recompute = force_recompute
+        self.augment_all = augment_all
         self.augment_noise = augment_noise
         self.gaussian_smoothing = gaussian_smoothing
         self.median_filter = median_filter
@@ -110,6 +112,7 @@ class MemSegDiffusionNetDataset(Dataset):
         self.diffusion_operator_params = diffusion_operator_params
 
         self.diffusion_operator_params["k_eig"] = k_eig
+        self.diffusion_operator_params["cache_dir"] = cache_dir
 
         self.initialize_csv_paths()
         self.load_data()
@@ -118,7 +121,7 @@ class MemSegDiffusionNetDataset(Dataset):
             self._precompute_partitioning()
             
         self.transforms = (
-            get_training_transforms(self.max_tomo_shape) if self.train else get_test_transforms()
+            get_training_transforms(self.max_tomo_shape) if (self.train and self.augment_all) else get_test_transforms()
         )
         if self.train:
             self.kdtrees = [KDTree(mb[:, :3]) for mb in (self.membranes if self.load_only_sampled_points is None else self.part_verts)]
@@ -316,7 +319,8 @@ class MemSegDiffusionNetDataset(Dataset):
                     normals=(idx_dict["normals"].float() if self.diffusion_operator_params["use_precomputed_normals"] else None),
                     overwrite_cache=overwrite_cache_flag
                 )
-        except:
+        except Exception as e:
+            print(e)
             return idx_dict
             
         
