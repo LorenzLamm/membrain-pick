@@ -22,6 +22,7 @@ def custom_collate(batch):
     Returns:
         Processed batch ready for model input.
     """
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # Unpack the single sample from the batch
     sample = batch[0]
     # Initialize a new dictionary to store the processed sample
@@ -30,11 +31,11 @@ def custom_collate(batch):
     for key, value in sample.items():
         if isinstance(value, np.ndarray):
             # Convert numpy arrays to tensors
-            processed_sample[key] = torch.tensor(value)
+            processed_sample[key] = torch.tensor(value).to(device)
         elif isinstance(value, dict):
             # For the nested dictionary, we assume it contains sparse matrices
             # and pass it through directly without modifications
-            processed_sample[key] = {subkey: subvalue for subkey, subvalue in value.items()}
+            processed_sample[key] = {subkey: subvalue.to(device) for subkey, subvalue in value.items()}
         else:
             # Directly pass through any other types of values
             processed_sample[key] = value
@@ -48,7 +49,9 @@ class MemSegDiffusionNetDataModule(pl.LightningDataModule):
         self,
         csv_folder_train: str,
         csv_folder_val: str,
+        csv_folder_test: Optional[str] = None,
         load_n_sampled_points: int = 2000,
+        is_single_mb: bool = False, # For testing single membrane
         overfit: bool = False,
         force_recompute: bool = False,
         overfit_mb: bool = False,
@@ -64,6 +67,9 @@ class MemSegDiffusionNetDataModule(pl.LightningDataModule):
         super().__init__()
         self.csv_folder_train = csv_folder_train
         self.csv_folder_val = csv_folder_val
+        self.csv_folder_test = csv_folder_test
+        self.is_single_mb = is_single_mb
+
         self.load_n_sampled_points = load_n_sampled_points
         self.overfit = overfit
         self.force_recompute = force_recompute
@@ -72,6 +78,7 @@ class MemSegDiffusionNetDataModule(pl.LightningDataModule):
         self.augment_all = augment_all
         self.pixel_size = pixel_size
         self.max_tomo_shape = max_tomo_shape
+
 
         self.k_eig = k_eig
         self.batch_size = batch_size
@@ -114,6 +121,22 @@ class MemSegDiffusionNetDataModule(pl.LightningDataModule):
                 k_eig=self.k_eig,
             )
             self.parameter_len = self.train_dataset.get_parameter_len()
+        elif stage == 'test' or stage is None:
+            self.test_dataset = MemSegDiffusionNetDataset(
+                csv_folder=self.csv_folder_test,
+                train=False,
+                train_pct=0.0,
+                is_single_mb=self.is_single_mb,
+                load_only_sampled_points=self.load_n_sampled_points,
+                max_tomo_shape=self.max_tomo_shape,
+                overfit=self.overfit,
+                force_recompute=self.force_recompute,
+                overfit_mb=self.overfit_mb,
+                cache_dir=self.cache_dir,
+                augment_all=self.augment_all,
+                pixel_size=self.pixel_size,
+                k_eig=self.k_eig,
+            )
 
 
     def train_dataloader(self):
@@ -136,3 +159,12 @@ class MemSegDiffusionNetDataModule(pl.LightningDataModule):
             collate_fn=custom_collate,
         )
     
+    def test_dataloader(self):
+        return DataLoader(
+            self.test_dataset,
+            batch_size=self.batch_size,
+            shuffle=False,
+            num_workers=self.num_workers,
+            pin_memory=self.pin_memory,
+            collate_fn=custom_collate,
+        )

@@ -11,8 +11,8 @@ from membrain_pick.optimization.optim_utils import weighted_MSELoss, CombinedLos
 
 class DiffusionNetModule(pl.LightningModule):
     def __init__(self, 
-                 C_in, 
-                 C_out, 
+                 C_in=13, 
+                 C_out=1, 
                  C_width=16, 
                  N_block=6, 
                  mlp_hidden_dims=None, 

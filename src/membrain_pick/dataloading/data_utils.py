@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import vtk
 
 
 def get_csv_data(csv_path, delimiter=",", with_header=False, return_header=False):
@@ -28,6 +29,7 @@ def store_point_and_vectors_in_vtp(
     out_path: str,
     in_points: np.ndarray,
     in_vectors: np.ndarray = None,
+    in_scalars: np.ndarray = None, 
 ):
     """
     Store points and, optionally, their associated vectors into a VTP file.
@@ -47,6 +49,10 @@ def store_point_and_vectors_in_vtp(
         A Numpy array of vectors associated with each point, typically representing
         normals or other vector data. Shape should be (n_points, 3). If not provided,
         only point data is written to the VTP file.
+    in_scalars : np.ndarray, optional
+        A Numpy array of scalars associated with each point. Shape should be (n_points,).
+        If not provided, only point and optional vector data are written to the VTP file.
+
 
     Returns
     -------
@@ -73,6 +79,16 @@ def store_point_and_vectors_in_vtp(
             vectors.InsertNextTuple(vector)
         polydata.GetPointData().AddArray(vectors)
         polydata.GetPointData().SetActiveVectors(vectors.GetName())
+
+    if in_scalars is not None:
+        if not isinstance(in_scalars, list) and not isinstance(in_scalars, tuple):
+            in_scalars = [in_scalars]
+        for i, cur_scalars in enumerate(in_scalars):
+            scalars = vtk.vtkFloatArray() 
+            scalars.SetName("Scalars%d" % i)
+            for scalar in cur_scalars:
+                scalars.InsertNextValue(scalar)
+                polydata.GetPointData().AddArray(scalars)
 
     writer = vtk.vtkXMLPolyDataWriter()
     writer.SetFileName(out_path)
