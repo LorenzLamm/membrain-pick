@@ -1,5 +1,26 @@
 import os 
 import torch
+from torch.nn import MSELoss
+
+
+class CombinedLoss(torch.nn.Module):
+            def __init__(self, criteria):
+                super().__init__()
+                self.criteria = criteria
+            def forward(self, preds, targets, weights):
+                loss = 0
+                for key in self.criteria:
+                    loss += self.criteria[key](preds[key], targets[key], weights[key])
+                return loss
+
+class weighted_MSELoss(MSELoss):
+    def __init__(self):
+        super(weighted_MSELoss, self).__init__()
+        self.mse = MSELoss()
+
+    def forward(self, input, target, weights):
+        return self.mse(input * weights, target * weights)
+
 
 def save_checkpoint(model, optimizer, epoch, loss, checkpoint_dir='checkpoints', filename='checkpoint'):
     # Ensure the directory exists

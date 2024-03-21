@@ -49,8 +49,6 @@ class MemSegDiffusionNetDataset(Dataset):
     def __init__(
         self,
         csv_folder: str,
-        pointcloud: bool = False,
-        mesh_data: bool = False,
         train: bool = False,
         train_pct: float = 0.8,
         max_tomo_shape: int = 928,
@@ -58,6 +56,7 @@ class MemSegDiffusionNetDataset(Dataset):
         overfit: bool = False,
         cache_dir: str = "/scicore/home/engel0006/GROUP/pool-engel/Lorenz/2D_projections/diffusion_net_training/mesh_cache2",
         force_recompute: bool = False,
+        augment_all: bool = True,
         overfit_mb: bool = False,
         augment_noise: bool = False,
         gaussian_smoothing: bool = False,
@@ -89,10 +88,7 @@ class MemSegDiffusionNetDataset(Dataset):
         """
         Constructs all the necessary attributes for the CryoETMemSegDataset object.
         """
-        assert pointcloud ^ mesh_data, "Either pointcloud or mesh_data must be True"
         self.train = train
-        self.pointcloud = pointcloud
-        self.mesh_data = mesh_data
         self.train_pct = train_pct
         self.csv_folder = csv_folder
         self.max_tomo_shape = max_tomo_shape
@@ -101,6 +97,7 @@ class MemSegDiffusionNetDataset(Dataset):
         self.overfit_mb = overfit_mb
         self.cache_dir = cache_dir
         self.force_recompute = force_recompute
+        self.augment_all = augment_all
         self.augment_noise = augment_noise
         self.gaussian_smoothing = gaussian_smoothing
         self.median_filter = median_filter
@@ -115,6 +112,7 @@ class MemSegDiffusionNetDataset(Dataset):
         self.diffusion_operator_params = diffusion_operator_params
 
         self.diffusion_operator_params["k_eig"] = k_eig
+        self.diffusion_operator_params["cache_dir"] = cache_dir
 
         self.initialize_csv_paths()
         self.load_data()
@@ -123,7 +121,7 @@ class MemSegDiffusionNetDataset(Dataset):
             self._precompute_partitioning()
             
         self.transforms = (
-            get_training_transforms(self.max_tomo_shape) if self.train else get_test_transforms()
+            get_training_transforms(self.max_tomo_shape) if (self.train and self.augment_all) else get_test_transforms()
         )
         if self.train:
             self.kdtrees = [KDTree(mb[:, :3]) for mb in (self.membranes if self.load_only_sampled_points is None else self.part_verts)]
@@ -196,13 +194,6 @@ class MemSegDiffusionNetDataset(Dataset):
         idx_dict = convert_to_torch(idx_dict)
         idx_dict = self._convert_to_diffusion_input(idx_dict, overwrite_cache_flag=not self.visited_flags[idx])
         self.visited_flags[idx] = True
-
-        # for key in idx_dict:
-        #     if key in ["membrane", "label", "faces", "normals", "vert_weights"]:
-        #         idx_dict[key] = np.expand_dims(idx_dict[key], 0)
-
-
-        self.visited_flags[idx] = True
         return idx_dict
     
 
@@ -217,8 +208,18 @@ class MemSegDiffusionNetDataset(Dataset):
         """
         if self.load_only_sampled_points is not None:
             return len(self.part_verts)
-            # return len(self.membranes) * (self.membranes[0].shape[0] // self.load_only_sampled_points)
         return len(self.membranes)
+    
+    def get_parameter_len(self) -> int:
+        """
+        Returns the length of the parameters of the dataset.
+
+        Returns
+        -------
+        int
+            The length of the parameters of the dataset.
+        """
+        return self.part_verts[0].shape[1] - 3
 
     def load_data(self) -> None:
         """
@@ -329,7 +330,8 @@ class MemSegDiffusionNetDataset(Dataset):
                     normals=(idx_dict["normals"].float() if self.diffusion_operator_params["use_precomputed_normals"] else None),
                     overwrite_cache=overwrite_cache_flag
                 )
-        except:
+        except Exception as e:
+            print(e)
             return idx_dict
             
         

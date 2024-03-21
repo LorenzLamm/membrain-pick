@@ -4,6 +4,8 @@ import typer
 from click import Context
 from typer.core import TyperGroup
 
+from membrain_pick.train import train as _train
+
 
 class OrderCommands(TyperGroup):
     """Return list of commands in the order appear."""
@@ -289,4 +291,114 @@ def convert_folder_structure(
         crop_box_flag=crop_box_flag,
         only_largest_component=only_largest_component,
         min_connected_size=min_connected_size,
+    )
+
+
+
+@cli.command(name="train", no_args_is_help=True)
+def train(
+    data_dir: str = Option(  # noqa: B008
+        ..., help="Path to the folder containing the training data.", **PKWARGS
+    ),
+    training_dir: str = Option(  # noqa: B008
+        "./training_output", help="Path to the folder where the training output should be stored."
+    ),
+    project_name: str = Option(  # noqa: B008
+        "test_diffusion", help="Name of the project."
+    ),
+    sub_name: str = Option(  # noqa: B008
+        "0", help="Subname of the project."
+    ),
+    overfit: bool = Option(  # noqa: B008
+        False, help="Should the model be overfitted?"
+    ),
+    overfit_mb: bool = Option(  # noqa: B008
+        False, help="Should the model be overfitted to the membrane?"
+    ),
+    partition_size: int = Option(  # noqa: B008
+        2000, help="Size of the partition."
+    ),
+    force_recompute_partitioning: bool = Option(  # noqa: B008
+        False, help="Should the partitioning be recomputed?"
+    ),
+    augment_all: bool = Option(  # noqa: B008
+        True, help="Should all data be augmented?"
+    ),
+    pixel_size: float = Option(  # noqa: B008
+        1.0, help="Pixel size of the tomogram."
+    ),
+    max_tomo_shape: int = Option(  # noqa: B008
+        928, help="Maximum shape of the tomogram."
+    ),
+    k_eig: int = Option(  # noqa: B008
+        128, help="Number of eigenvectors."
+    ),
+    N_block: int = Option(  # noqa: B008
+        6, help="Number of blocks."
+    ),
+    C_width: int = Option(  # noqa: B008
+        16, help="Width of the convolution."
+    ),
+    dropout: bool = Option(  # noqa: B008
+        False, help="Should dropout be used?"
+    ),
+    with_gradient_features: bool = Option(  # noqa: B008
+        True, help="Should the gradient features be used?"
+    ),
+    with_gradient_rotations: bool = Option(  # noqa: B008
+        True, help="Should the gradient rotations be used?"
+    ),
+    device: str = Option(  # noqa: B008
+        "cuda:0", help="Device to use."
+    ),
+    one_D_conv_first: bool = Option(  # noqa: B008
+        False, help="Should 1D convolution be used first?"
+    ),
+    mean_shift_output: bool = Option(  # noqa: B008
+        False, help="Should the output be mean shifted?"
+    ),
+    mean_shift_bandwidth: float = Option(  # noqa: B008
+        7.0, help="Bandwidth for the mean shift."
+    ),
+    mean_shift_max_iter: int = Option(  # noqa: B008
+        10, help="Maximum number of iterations for the mean shift."
+    ),
+    mean_shift_margin: float = Option(  # noqa: B008
+        2.0, help="Margin for the mean shift."
+    ),
+    max_epochs: int = Option(  # noqa: B008
+        1000, help="Maximum number of epochs."
+    ),
+):
+    """Train a diffusion net model.
+
+    Example
+    -------
+    membrain-pick train --data-dir <path-to-your-folder> --training-dir <path-to-your-folder>
+    """
+    _train(
+        data_dir=data_dir,
+        training_dir=training_dir,
+        project_name=project_name,
+        sub_name=sub_name,
+        overfit=overfit,
+        overfit_mb=overfit_mb,
+        partition_size=partition_size,
+        force_recompute_partitioning=force_recompute_partitioning,
+        augment_all=augment_all,
+        pixel_size=pixel_size,
+        max_tomo_shape=max_tomo_shape,
+        k_eig=k_eig,
+        N_block=N_block,
+        C_width=C_width,
+        dropout=dropout,
+        with_gradient_features=with_gradient_features,
+        with_gradient_rotations=with_gradient_rotations,
+        device=device,
+        one_D_conv_first=one_D_conv_first,
+        mean_shift_output=mean_shift_output,
+        mean_shift_bandwidth=mean_shift_bandwidth,
+        mean_shift_max_iter=mean_shift_max_iter,
+        mean_shift_margin=mean_shift_margin,
+        max_epochs=max_epochs,
     )

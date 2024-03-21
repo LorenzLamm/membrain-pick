@@ -1,19 +1,14 @@
 """ Implemntation of Mean Shift based on https://github.com/masqm/Faster-Mean-Shift/tree/master"""
 
 import torch
-from torch.nn.functional import normalize, pairwise_distance
+from torch.nn.functional import normalize
 import numpy as np
 import scipy
-# import KDTree
-from scipy.spatial import KDTree
-from sklearn.neighbors import KDTree
-from time import time
 from sklearn.cluster import DBSCAN
 
 class MeanShiftForwarder():
-    def __init__(self, bandwidth, num_seeds, max_iter, device, margin=2.):
+    def __init__(self, bandwidth, max_iter, device, margin=2.):
         self.bandwidth = bandwidth
-        self.num_seeds = num_seeds
         self.max_iter = max_iter
         self.margin = margin
         self.device = device
@@ -75,60 +70,6 @@ class MeanShiftForwarder():
             p_num.append(line[line == 1].size()[0])
 
         return S, p_num, torch.norm(S_weights, dim=1)
-
-    def initialize_seeds(self, x, sample_pos, sample_rad=7.5):
-        # np.random.seed(999)
-        shape = x.shape
-        all_seeds = []
-        if len(shape) == 4:
-            s_max1 = shape[2]
-            s_max2 = shape[3]
-        elif len(shape) == 5:
-            s_max1 = shape[2]
-            s_max2 = shape[3]
-            s_max3 = shape[4]
-        else:
-            raise IOError('Wrong input shape!')
-        while len(all_seeds) < self.num_seeds:
-            cur_sample_pt = len(all_seeds) % sample_pos.shape[0]
-            cur_sample = sample_pos[cur_sample_pt]
-            x_comp = np.random.uniform(max(self.margin, cur_sample[0] - sample_rad), min(s_max1-self.margin, cur_sample[0] + sample_rad))
-            y_comp = np.random.uniform(max(self.margin, cur_sample[1] - sample_rad), min(s_max2-self.margin, cur_sample[1] + sample_rad))
-            cur_point = np.array((x_comp, y_comp))
-            if len(shape) == 5:
-                z_comp = np.random.uniform(max(self.margin, cur_sample[2] - sample_rad), min(s_max3-self.margin, cur_sample[2] + sample_rad))
-                cur_point = np.array((x_comp, y_comp, z_comp))
-            dist = scipy.spatial.distance.cdist(np.expand_dims(cur_sample.numpy(), 0),np.expand_dims(cur_point, axis=0))
-            if np.min(dist, axis=0) < sample_rad:
-                all_seeds.append(cur_point)
-        all_seeds = torch.from_numpy(np.stack(all_seeds))
-        return all_seeds
-
-    def initialize_seeds_deprec(self, x, sample_pos, sample_rad=7.5):
-        np.random.seed(999)
-        shape = x.shape
-        all_seeds = []
-        if len(shape) == 4:
-            s_max1 = shape[2]
-            s_max2 = shape[3]
-        elif len(shape) == 5:
-            s_max1 = shape[2]
-            s_max2 = shape[3]
-            s_max3 = shape[4]
-        else:
-            raise IOError('Wrong input shape!')
-        while len(all_seeds) < self.num_seeds:
-            x_comp = np.random.uniform(self.margin, s_max1-self.margin)
-            y_comp = np.random.uniform(self.margin, s_max2-self.margin)
-            cur_point = np.array((x_comp, y_comp))
-            if len(shape) == 5:
-                z_comp = np.random.uniform(self.margin, s_max3 - self.margin)
-                cur_point = np.array((x_comp, y_comp, z_comp))
-            dist = scipy.spatial.distance.cdist(sample_pos.numpy(),np.expand_dims(cur_point, axis=0))
-            if np.min(dist, axis=0) < sample_rad:
-                all_seeds.append(cur_point)
-        all_seeds = torch.from_numpy(np.stack(all_seeds))
-        return all_seeds
 
 
     def initialize_coords(self, x):

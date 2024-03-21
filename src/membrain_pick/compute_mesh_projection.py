@@ -1,52 +1,47 @@
 from time import time 
-import os
 import numpy as np
 
-from membrain_seg.normal_processing.mesh_utils import convert_seg_to_mesh
-from membrain_seg.segmentation.dataloading.data_utils import load_tomogram, store_tomogram, store_array_in_csv
+from membrain_seg.segmentation.dataloading.data_utils import load_tomogram
+from membrain_pick.dataloading.data_utils import store_array_in_csv
 
 import pyvista as pv
 import pyacvd
 
+from skimage import measure
+
 from scipy.ndimage import map_coordinates
 
-import trimesh
+# import trimesh
 
 
-# def bspline_orig(t):
-#     t = abs(t)
-#     a = 2.0 - t
+def convert_seg_to_mesh(
+    seg: np.ndarray, smoothing: int, voxel_size: float = 1.0
+) -> pv.PolyData:
+    """
+    Convert a segmentation array to a mesh using marching cubes.
 
-#     if t < 1.0: 
-#         return 2.0 / 3.0 - 0.5 * t * t * a
-#     elif t < 2.0: 
-#         return a * a * a / 6.0
-#     else: 
-#         return 0.0
+    Parameters
+    ----------
+    seg : np.ndarray
+        The segmentation array.
+    smoothing : int
+        The number of smoothing iterations to apply to the mesh.
+    voxel_size : float, optional
+        The voxel size of the segmentation array. Default is 1.0.
 
-
-# def cubicTex3DSimple(volTexture, pos, texSize):
-#     # transform the coordinate from [0,extent] to [-0.5, extent-0.5]
-#     coord_grid = pos - 0.5
-
-#     index = np.floor(coord_grid)
-#     fraction = coord_grid - index
-#     index = index + 0.5  #move from [-0.5, extent-0.5] to [0, extent]
-
-#     result = 0.0
-#     for z in np.arange(-1, 2.5, 1):  #range [-1, 2]
-#         bsplineZ = bspline_orig(z - fraction[2])
-#         w = index[2] + z
-#         for y in np.arange(-1, 2.5, 1):
-#             bsplineYZ = bspline_orig(y - fraction[1]) * bsplineZ
-#             v = index[1] + y
-#             for x in np.arange(-1, 2.5, 1):
-#                 bsplineXYZ = bspline_orig(x - fraction[0]) * bsplineYZ
-#                 u = index[0] + x
-#                 voxel_value = map_coordinates(volTexture, np.array([[u], [v], [w]]), order=1)
-#                 result += bsplineXYZ * voxel_value * texSize
-#     return result[0]
-
+    Returns
+    -------
+    pv.PolyData
+        The resulting mesh.
+    """
+    verts, faces, _, _ = measure.marching_cubes(
+        seg, 0.5, step_size=1.5, method="lewiner"
+    )
+    verts = verts * voxel_size
+    all_col = np.ones((faces.shape[0], 1), dtype=int) * 3  # Prepend 3 for vtk format
+    faces = np.concatenate((all_col, faces), axis=1)
+    surf = pv.PolyData(verts, faces)
+    return surf.smooth(n_iter=smoothing)
 
 
 def vectorized_cubicTex3DSimple(volTexture, pos, texSize):
@@ -124,24 +119,6 @@ def compute_values_along_normals(mesh, tomo, b_splines=True, steps=(-6, 7), step
     positions_transposed = positions.T
     normal_values = map_coordinates(tomo, positions_transposed, order=3)
     normal_values = normal_values.reshape(positions_shape[0], positions_shape[1], order='C')
-    return normal_values
-
-
-def compute_values_along_normals_bkp(mesh, tomo, b_splines=True, steps=(-6, 7), step_size=0.25, verts=None, normals=None):
-    # Get vertices and triangle combinations
-    if verts is None:
-        verts = mesh.points
-    if normals is None:
-        normals = mesh.point_normals
-
-    normal_values = []
-    time_zero = time()
-    for i in range(len(verts)):
-        if i % 5000 == 0:
-            print(i, "/", len(verts), time() - time_zero)
-        norm_vals = get_tomo_values_along_normal(verts[i], normals[i], tomo, b_splines=b_splines, steps=steps, step_size=step_size)
-        normal_values.append(norm_vals)
-    normal_values = np.stack(normal_values, axis=0)
     return normal_values
 
 

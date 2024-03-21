@@ -1,21 +1,13 @@
-import sys
-import os
-import random
-
-import scipy
 import scipy.sparse.linalg as sla
 # ^^^ we NEED to import scipy before torch, or it crashes :(
 # (observed on Ubuntu 20.04 w/ torch 1.6.0 and scipy 1.5.2 installed via conda)
 
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .utils import toNP
 from .geometry import to_basis, from_basis
 
-from membrain_pick.optimization.mean_shift_utils import MeanShiftForwarder
 
 class LearnedTimeDiffusion(nn.Module):
     """
@@ -406,7 +398,7 @@ class AnchorAdjustmentLayer(nn.Module):
 class DiffusionNet(nn.Module):
 
     def __init__(self, C_in, C_out, C_width=128, N_block=4, last_activation=None, outputs_at='vertices', mlp_hidden_dims=None, dropout=True, 
-                       with_gradient_features=True, with_gradient_rotations=True, diffusion_method='spectral', lstm_first=False, mean_shift_clustering=False, ms_bandwidth=0.1, device="cuda:0",
+                       with_gradient_features=True, with_gradient_rotations=True, diffusion_method='spectral', device="cuda:0",
                        fixed_time=None, one_D_conv_first=False, clamp_diffusion=False, visualize_diffusion=False, visualize_grad_rotations=False, visualize_grad_features=False,):   
         """
         Construct a DiffusionNet.
@@ -423,7 +415,6 @@ class DiffusionNet(nn.Module):
             diffusion_method (string):      how to evaluate diffusion, one of ['spectral', 'implicit_dense']. If implicit_dense is used, can set k_eig=0, saving precompute.
             with_gradient_features (bool):  if True, use gradient features (default: True)
             with_gradient_rotations (bool): if True, use gradient also learn a rotation of each gradient. Set to True if your surface has consistently oriented normals, and False otherwise (default: True)
-            lstm_first (bool):              if True, use an LSTM layer as the first layer (default: False)
         """
 
         super(DiffusionNet, self).__init__()
@@ -435,7 +426,6 @@ class DiffusionNet(nn.Module):
         self.C_out = C_out
         self.C_width = C_width
         self.N_block = N_block
-        self.lstm_first = lstm_first
         self.fixed_time = fixed_time
         self.one_D_conv_first = one_D_conv_first
         self.visualize_diffusion = visualize_diffusion
@@ -465,12 +455,7 @@ class DiffusionNet(nn.Module):
         self.with_gradient_rotations = with_gradient_rotations
         
         ## Set up the network
-        if lstm_first:
-            self.lstm = nn.LSTM(input_size=C_in, hidden_size=C_width, batch_first=True, num_layers=1)
-            self.first_lin = nn.Linear(C_width, C_width)
-        elif one_D_conv_first:
-            # self.first_conv = nn.Conv1d(1, 32, kernel_size=3, padding=0)
-            # self.second_conv = nn.Conv1d(32, 4, kernel_size=3, padding=0)
+        if one_D_conv_first:
             self.conv_block_out_dim = C_width * (C_in // 4)
             self.conv_block = SeparableDiffusionNetBlock(C_in=self.C_in,
                                     C_width = C_width,
@@ -505,15 +490,6 @@ class DiffusionNet(nn.Module):
             self.blocks.append(block)
             self.add_module("block_"+str(i_block), self.blocks[-1])
 
-        self.mean_shift_clustering = mean_shift_clustering
-        if mean_shift_clustering:
-            self.ms_module = MeanShiftForwarder(
-                bandwidth=ms_bandwidth,
-                num_seeds=100,
-                max_iter=10,
-                margin=2.,
-                device=self.device,
-            )
 
     
     def get_config(self):
@@ -529,9 +505,6 @@ class DiffusionNet(nn.Module):
             'diffusion_method': self.diffusion_method,
             'with_gradient_features': self.with_gradient_features,
             'with_gradient_rotations': self.with_gradient_rotations,
-            'lstm_first': self.lstm_first,
-            'mean_shift_clustering': self.mean_shift_clustering,
-            'ms_bandwidth': self.ms_module.bandwidth if self.mean_shift_clustering else None,  # Assuming bandwidth can be accessed this way
             'device': self.device,
             'fixed_time': self.fixed_time,
             'one_D_conv_first': self.one_D_conv_first
@@ -591,10 +564,7 @@ class DiffusionNet(nn.Module):
 
         
         # Apply the first linear layer
-        if self.lstm_first:
-            x, _ = self.lstm(x_in)
-            x = self.first_lin(x)
-        elif self.one_D_conv_first:
+        if self.one_D_conv_first:
             x = self.conv_block(x_in, mass, L, evals, evecs, gradX, gradY)
             x = self.first_lin(x)
         else:
@@ -643,9 +613,4 @@ class DiffusionNet(nn.Module):
         if appended_batch_dim:
             x_out = x_out.squeeze(0)
 
-        # if self.mean_shift_clustering:
-        #     assert verts is not None
-        #     x_out_ms, _, _ = self.ms_module.mean_shift_forward(verts.squeeze(), torch.abs(x_out.squeeze()))
-
-        #     return x_out, x_out_ms
         return x_out

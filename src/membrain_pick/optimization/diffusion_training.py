@@ -57,7 +57,6 @@ def find_best_fit_plane(point_cloud):
     return normal_vector, point_on_plane
 
 
-
 def load_data_from_batch(epoch, batch, use_faces, cache_dir, k_eig=128, use_precomputed_normals=True, normalize_verts=True, hks_features=False, augment_random_rotate=False, aggregate_coordinates=False,
                          random_sample_thickness=False, classification=False, distance_radius=7.):
     points = batch["membrane"][0, 0].float()
@@ -92,7 +91,6 @@ def load_data_from_batch(epoch, batch, use_faces, cache_dir, k_eig=128, use_prec
         verts -= verts.mean()
 
 
-   
     # Get the geometric operators needed to evaluate DiffusionNet. This routine 
     # automatically populates a cache, precomputing only if needed.
     try:
