@@ -91,6 +91,15 @@ class DiffusionNetModule(pl.LightningModule):
         # Configure optimizers and schedulers (if needed)
         optimizer = Adam(self.parameters(), lr=1e-3)
         return optimizer
+    
+    def on_train_epoch_start(self):
+        self.total_train_loss = 0
+        self.train_batches = 0
+
+    def on_validation_epoch_start(self):
+        self.total_val_loss = 0
+        self.val_batches = 0
+
  
     def training_step(self, batch, batch_idx):
         targets = {
@@ -109,7 +118,8 @@ class DiffusionNetModule(pl.LightningModule):
         # Calculate loss
         loss = self.criterion(preds, targets, weights)
         # Log training loss
-        self.log('train_loss', loss)
+        self.total_train_loss += loss.detach()
+        self.train_batches += 1
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -127,22 +137,18 @@ class DiffusionNetModule(pl.LightningModule):
 
         loss = self.criterion(preds, targets, weights)
         # Log validation loss
-        self.log('val_loss', loss)
+        self.total_val_loss += loss.detach()
+        self.val_batches += 1
 
-    
-    def test_step(self, batch, batch_idx):
-        targets = {
-            "mse": batch["label"],
-            "ms": batch["gt_pos"]
-        }
-        weights = {
-            "mse": batch["vert_weights"],
-            "ms": torch.ones_like(batch["gt_pos"]) # might need to change this
-        }
-        preds = self(batch)
-        loss = self.criterion(preds, targets, weights)
-        # Log test loss
-        self.log('test_loss', loss)
+    def on_train_epoch_end(self):
+        # Log the average training loss
+        avg_train_loss = self.total_train_loss / self.train_batches
+        self.log('train_loss', avg_train_loss)
+
+    def on_validation_epoch_end(self):
+        # Log the average validation loss
+        avg_val_loss = self.total_val_loss / self.val_batches
+        self.log('val_loss', avg_val_loss)
 
 
 def unpack_batch(batch):
