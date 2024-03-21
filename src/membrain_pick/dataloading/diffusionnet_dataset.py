@@ -54,6 +54,7 @@ class MemSegDiffusionNetDataset(Dataset):
         max_tomo_shape: int = 928,
         load_only_sampled_points: int = None,
         overfit: bool = False,
+        is_single_mb: bool = False,
         cache_dir: str = "/scicore/home/engel0006/GROUP/pool-engel/Lorenz/2D_projections/diffusion_net_training/mesh_cache2",
         force_recompute: bool = False,
         augment_all: bool = True,
@@ -96,6 +97,7 @@ class MemSegDiffusionNetDataset(Dataset):
         self.overfit = overfit
         self.overfit_mb = overfit_mb
         self.cache_dir = cache_dir
+        self.is_single_mb = is_single_mb
         self.force_recompute = force_recompute
         self.augment_all = augment_all
         self.augment_noise = augment_noise
@@ -173,6 +175,7 @@ class MemSegDiffusionNetDataset(Dataset):
                 "faces": self.part_faces[idx],
                 "normals": self.part_normals[idx],
                 "mb_idx": self.part_mb_idx[idx],
+                "mb_token": os.path.basename(self.data_paths[self.part_mb_idx[idx]][0])[:-14],
                 "gt_pos": self.part_gt_pos[idx],
                 "vert_weights": self.part_vert_weights[idx]
             }
@@ -187,6 +190,7 @@ class MemSegDiffusionNetDataset(Dataset):
                 "faces": self.faces[idx],
                 "normals": self.vert_normals[idx],
                 "mb_idx": idx,
+                "mb_token": os.path.basename(self.data_paths[idx][0])[:-14],
                 "gt_pos": self.gt_pos[idx],
                 "vert_weights": np.ones(self.membranes[idx].shape[0])
             }
@@ -272,7 +276,9 @@ class MemSegDiffusionNetDataset(Dataset):
         """
 
         self.data_paths = []
-        for filename in os.listdir(self.csv_folder):
+
+        candidate_files = (os.listdir(self.csv_folder) if not self.is_single_mb else [self.csv_folder])
+        for filename in candidate_files:
             # if not filename.startswith("T17S1M13") and not filename.startswith("T17S1M11"):# and not filename.startswith("T17S2M5") and not filename.startswith("T17S1M7") and not filename.startswith("T17S1M10"):
             #     continue
             if filename.endswith("data.csv"):
@@ -281,13 +287,21 @@ class MemSegDiffusionNetDataset(Dataset):
                 self.data_paths.append(filename)
 
         self.data_paths.sort()
-        self.data_paths = [
-            (os.path.join(self.csv_folder, filename), 
-             os.path.join(self.csv_folder, filename[:-14] + "_psii_pos.csv"),
-             os.path.join(self.csv_folder, filename[:-14] + "_mesh_faces.csv"),
-             os.path.join(self.csv_folder, filename[:-14] + "_mesh_normals.csv"),)
-            for filename in self.data_paths
-        ]
+        if not self.is_single_mb:
+            self.data_paths = [
+                (os.path.join(self.csv_folder, filename), 
+                os.path.join(self.csv_folder, filename[:-14] + "_psii_pos.csv"),
+                os.path.join(self.csv_folder, filename[:-14] + "_mesh_faces.csv"),
+                os.path.join(self.csv_folder, filename[:-14] + "_mesh_normals.csv"),)
+                for filename in self.data_paths
+            ]
+        else:  
+            self.data_paths = [
+                (filename,
+                 filename[:-14] + "_psii_pos.csv",
+                 filename[:-14] + "_mesh_faces.csv",
+                 filename[:-14] + "_mesh_normals.csv")
+            ]
         if self.train:
             self.data_paths = self.data_paths[:int(len(self.data_paths) * self.train_pct)]
         else:
