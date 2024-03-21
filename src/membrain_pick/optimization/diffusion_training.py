@@ -91,7 +91,6 @@ def load_data_from_batch(epoch, batch, use_faces, cache_dir, k_eig=128, use_prec
         verts -= verts.mean()
 
 
-   
     # Get the geometric operators needed to evaluate DiffusionNet. This routine 
     # automatically populates a cache, precomputing only if needed.
     try:

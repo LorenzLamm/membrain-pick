@@ -148,7 +148,6 @@ class DiffusionNetModule(pl.LightningModule):
 def unpack_batch(batch):
     if "diffusion_inputs" not in batch:
         return None, None, None, None, None, None, None, None, None
-    print(batch.keys() ," <-- sdknw")
     diffusion_inputs = batch["diffusion_inputs"]
     features = diffusion_inputs["features"]
     mass = diffusion_inputs["mass"]
