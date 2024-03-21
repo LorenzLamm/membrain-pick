@@ -294,13 +294,14 @@ def convert_to_mesh(mb_file,
                                                         normals=point_normals)
             print("Computed values along normals")
 
-        out_data = np.concatenate([mesh.points, normal_values], axis=1)
+        
         out_file = os.path.join(out_folder, cur_mb_key + "_mesh_data.csv")
         out_file_faces = os.path.join(out_folder, cur_mb_key + "_mesh_faces.csv")
         out_file_normals = os.path.join(out_folder, cur_mb_key + "_mesh_normals.csv")
         out_file_normals_vtp = os.path.join(out_folder, mb_key + "_mesh_normals.vtp")
 
         if not only_obj:
+            out_data = np.concatenate([mesh.points, normal_values], axis=1)
             store_array_in_csv(out_file, out_data)
             store_array_in_csv(out_file_faces, faces)
             store_array_in_csv(out_file_normals, mesh.point_normals*(-1))
