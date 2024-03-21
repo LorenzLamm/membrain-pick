@@ -113,6 +113,7 @@ class MemSegDiffusionNetDataModule(pl.LightningDataModule):
                 pixel_size=self.pixel_size,
                 k_eig=self.k_eig,
             )
+            self.parameter_len = self.train_dataset.get_parameter_len()
 
 
     def train_dataloader(self):

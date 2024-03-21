@@ -209,6 +209,17 @@ class MemSegDiffusionNetDataset(Dataset):
         if self.load_only_sampled_points is not None:
             return len(self.part_verts)
         return len(self.membranes)
+    
+    def get_parameter_len(self) -> int:
+        """
+        Returns the length of the parameters of the dataset.
+
+        Returns
+        -------
+        int
+            The length of the parameters of the dataset.
+        """
+        return self.part_verts[0].shape[1] - 3
 
     def load_data(self) -> None:
         """
