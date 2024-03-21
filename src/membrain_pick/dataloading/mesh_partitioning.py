@@ -265,7 +265,8 @@ def compute_and_cache_partitioning(
     prev_len = 0
     pbar = tqdm(total=total_len)
     while face_candidates.shape[0] > 0:
-        cur_cache_path = cache_path[:-4] + "_partnr" + str(part_counter) + ".npz"
+        if cache_path is not None:
+            cur_cache_path = cache_path[:-4] + "_partnr" + str(part_counter) + ".npz"
         face_start = face_candidates[0]
         adj_faces, adj_faces_weights = find_adjacent_faces(faces[mb_idx], mb[:, :3], face_start, max_sampled_points)
         cur_part_verts, cur_part_labels, cur_part_faces, cur_part_normals, cur_part_gts, cur_part_vert_weights = get_partition_from_face_list(
@@ -291,7 +292,8 @@ def compute_and_cache_partitioning(
         face_candidates = exclude_faces_from_candidates(adj_faces, face_candidates, adj_faces_weights, min_gaussian_weight)
         if overfit and part_counter > 2:
             break
-        np.savez(cur_cache_path, **cache)
+        if cache_path is not None:
+            np.savez(cur_cache_path, **cache)
         part_counter += 1
         pbar.update(total_len - face_candidates.shape[0] - prev_len)
         prev_len = total_len - face_candidates.shape[0]
@@ -328,18 +330,22 @@ def precompute_partitioning(
 
         for mb_idx, mb in enumerate(membranes):
             # encode both membrane data and self.load_only_sampled_points
-            cache_path, cur_cache_path = get_cache_path(cache_dir, mb, max_sampled_points, overfit)
-            cache_found = False
+            cache_out = get_cache_path(cache_dir, mb, max_sampled_points, overfit)
+            if cache_out is None:
+                cache_path = None
+                cur_cache_path = None
+                cache_found = False
+            else:
+                cache_path, cur_cache_path = cache_out
+                cache_found = False
             
-
-            # Load from cache if available
-            cache_found = load_cached_partitioning(cache_dir, 
-                                                   cur_cache_path, 
-                                                   cache_path, 
-                                                   force_recompute, 
-                                                   (part_verts, part_labels, part_faces, part_normals, part_mb_idx, part_gt_pos, part_vert_weights), 
-                                                   mb_idx, 
-                                                   overfit)
+                cache_found = load_cached_partitioning(cache_dir, 
+                                                    cur_cache_path, 
+                                                    cache_path, 
+                                                    force_recompute, 
+                                                    (part_verts, part_labels, part_faces, part_normals, part_mb_idx, part_gt_pos, part_vert_weights), 
+                                                    mb_idx, 
+                                                    overfit)
             if cache_found:
                 print(f"Loaded partitioning for membrane {mb_idx}.")
             else:
@@ -389,6 +395,8 @@ def get_cache_path(cache_dir: str,
     str
         The generated file path for the cache file.
     """
+    if cache_dir is None:
+        return None
     mb_cache_hash = get_array_hash(mb)
     sampled_points_cache_hash = str(hash(max_sampled_points))
     overfit_cache_hash = str(hash(overfit))
