@@ -20,6 +20,7 @@ cli = typer.Typer(
     add_completion=True,
     no_args_is_help=True,
     rich_markup_mode="rich",
+    pretty_exceptions_show_locals=False
 )
 OPTION_PROMPT_KWARGS = {"prompt": True, "prompt_required": True}
 PKWARGS = OPTION_PROMPT_KWARGS
@@ -401,4 +402,69 @@ def train(
         mean_shift_max_iter=mean_shift_max_iter,
         mean_shift_margin=mean_shift_margin,
         max_epochs=max_epochs,
+    )
+
+
+
+# predict CLI
+from membrain_pick.predict import predict as _predict
+
+"""
+def predict(
+        data_dir: str,
+        ckpt_path: str,
+        out_dir: str,
+        is_single_mb: bool = False,
+
+        # Dataset parameters
+        partition_size: int = 2000,
+        pixel_size: float = 1.0,
+        max_tomo_shape: int = 928,
+        k_eig: int = 128,
+):
+
+"""
+
+@cli.command(name="predict", no_args_is_help=True)
+def predict(
+    data_dir: str = Option(  # noqa: B008
+        ..., help="Path to the folder containing the data to predict.", **PKWARGS
+    ),
+    ckpt_path: str = Option(  # noqa: B008
+        ..., help="Path to the checkpoint.", **PKWARGS
+    ),
+    out_dir: str = Option(  # noqa: B008
+        "./predict_output", help="Path to the folder where the output should be stored."
+    ),
+    is_single_mb: bool = Option(  # noqa: B008
+        False, help="Should the prediction be done for a single membrane?"
+    ),
+    partition_size: int = Option(  # noqa: B008
+        2000, help="Size of the partition."
+    ),
+    pixel_size: float = Option(  # noqa: B008
+        1.0, help="Pixel size of the tomogram."
+    ),
+    max_tomo_shape: int = Option(  # noqa: B008
+        928, help="Maximum shape of the tomogram."
+    ),
+    k_eig: int = Option(  # noqa: B008
+        128, help="Number of eigenvectors."
+    ),
+):
+    """Predict the output of the trained model on the given data.
+
+    Example
+    -------
+    membrain-pick predict --data-dir <path-to-your-folder> --ckpt-path <path-to-your-checkpoint> --out-dir <path-to-store-output>
+    """
+    _predict(
+        data_dir=data_dir,
+        ckpt_path=ckpt_path,
+        out_dir=out_dir,
+        is_single_mb=is_single_mb,
+        partition_size=partition_size,
+        pixel_size=pixel_size,
+        max_tomo_shape=max_tomo_shape,
+        k_eig=k_eig,
     )
