@@ -409,22 +409,6 @@ def train(
 # predict CLI
 from membrain_pick.predict import predict as _predict
 
-"""
-def predict(
-        data_dir: str,
-        ckpt_path: str,
-        out_dir: str,
-        is_single_mb: bool = False,
-
-        # Dataset parameters
-        partition_size: int = 2000,
-        pixel_size: float = 1.0,
-        max_tomo_shape: int = 928,
-        k_eig: int = 128,
-):
-
-"""
-
 @cli.command(name="predict", no_args_is_help=True)
 def predict(
     data_dir: str = Option(  # noqa: B008
@@ -451,6 +435,24 @@ def predict(
     k_eig: int = Option(  # noqa: B008
         128, help="Number of eigenvectors."
     ),
+    mean_shift_output: bool = Option(  # noqa: B008
+        False, help="Should the output be mean shifted?"
+    ),
+    mean_shift_bandwidth: float = Option(  # noqa: B008
+        7.0, help="Bandwidth for the mean shift."
+    ),
+    mean_shift_max_iter: int = Option(  # noqa: B008
+        150, help="Maximum number of iterations for the mean shift."
+    ),
+    mean_shift_margin: float = Option(  # noqa: B008
+        0.0, help="Margin for the mean shift."
+    ),
+    mean_shift_score_threshold: float = Option(  # noqa: B008
+        9.0, help="Score threshold for the mean shift."
+    ),
+    mean_shift_device: str = Option(  # noqa: B008
+        "cuda:0", help="Device to use for the mean shift."
+    ),
 ):
     """Predict the output of the trained model on the given data.
 
@@ -467,4 +469,54 @@ def predict(
         pixel_size=pixel_size,
         max_tomo_shape=max_tomo_shape,
         k_eig=k_eig,
+        mean_shift_output=mean_shift_output,
+        mean_shift_bandwidth=mean_shift_bandwidth,
+        mean_shift_max_iter=mean_shift_max_iter,
+        mean_shift_margin=mean_shift_margin,
+        mean_shift_score_threshold=mean_shift_score_threshold,
+        mean_shift_device=mean_shift_device,
+    )
+
+
+
+from membrain_pick.mean_shift_inference import mean_shift_for_csv as _mean_shift_for_csv
+
+@cli.command(name="mean_shift", no_args_is_help=True)
+def mean_shift_for_csv(
+    csv_path: str = Option(  # noqa: B008
+        ..., help="Path to the CSV file.", **PKWARGS
+    ),
+    out_dir: str = Option(  # noqa: B008
+        "./mean_shift_output", help="Path to the folder where the output should be stored."
+    ),
+    bandwidth: float = Option(  # noqa: B008
+        7.0, help="Bandwidth for the mean shift."
+    ),
+    max_iter: int = Option(  # noqa: B008
+        150, help="Maximum number of iterations for the mean shift."
+    ),
+    margin: float = Option(  # noqa: B008
+        0.0, help="Margin for the mean shift."
+    ),
+    score_threshold: float = Option(  # noqa: B008
+        9.0, help="Score threshold for the mean shift."
+    ),
+    device: str = Option(  # noqa: B008
+        "cuda:0", help="Device to use for the mean shift."
+    ),
+):
+    """Perform mean shift on the given CSV file.
+
+    Example
+    -------
+    membrain-pick mean_shift --csv-path <path-to-your-csv> --out-dir <path-to-store-output>
+    """
+    _mean_shift_for_csv(
+        csv_file=csv_path,
+        out_dir=out_dir,
+        bandwidth=bandwidth,
+        max_iter=max_iter,
+        margin=margin,
+        score_threshold=score_threshold,
+        device=device,
     )

@@ -36,9 +36,6 @@ class MeanShiftForwarder():
 
         max = torch.tensor(1.0).float().to(self.device)
         min = torch.tensor(0.0).float().to(self.device)
-        # dist = torch.from_numpy(dist).to(self.device)
-        # dis = torch.where(dist < thr, max, min)
-        # print(torch.sum(dis), "<--", dist.shape[0]*dist.shape[1])
         dis = torch.where(dist < thr, dist_norm, min)
         dis = dis.to(self.device)
         
@@ -61,7 +58,6 @@ class MeanShiftForwarder():
             S_weights = num
             S = num / (weight.sum(1)[:, None] + 1e-6 * min(1., self.bandwidth))
             iter += 1
-            print(torch.norm(S - S_old, dim=1).mean(), "<--", stop_thresh, iter, self.max_iter)
             if (torch.norm(S - S_old, dim=1).mean() < stop_thresh or iter >= self.max_iter):
                 break
 

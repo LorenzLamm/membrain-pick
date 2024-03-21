@@ -9,6 +9,7 @@ from membrain_pick.dataloading.diffusionnet_datamodule import MemSegDiffusionNet
 from membrain_pick.optimization.diffusion_training_pylit import DiffusionNetModule
 
 from membrain_pick.dataloading.data_utils import store_array_in_csv, store_point_and_vectors_in_vtp
+from membrain_pick.mean_shift_inference import mean_shift_for_scores, store_clusters
 
 
 def save_output(cur_mb_data, out_dir, mb_token):
@@ -37,6 +38,8 @@ def save_output(cur_mb_data, out_dir, mb_token):
     store_array_in_csv(out_file_csv, np.concatenate((unique_verts, np.expand_dims(unique_scores, axis=1)), axis=1))
     store_point_and_vectors_in_vtp(out_file_vtp, unique_verts, in_scalars=[unique_labels, unique_scores] + [unique_features[:, i] for i in range(0, unique_features.shape[1])])
 
+    return unique_verts, unique_scores, out_file_csv
+
 
 def predict(
         data_dir: str,
@@ -49,6 +52,15 @@ def predict(
         pixel_size: float = 1.0,
         max_tomo_shape: int = 928,
         k_eig: int = 128,
+
+        # Mean shift parameters
+        mean_shift_output: bool = False,
+        mean_shift_bandwidth: float = 7.,
+        mean_shift_max_iter: int = 150,
+        mean_shift_margin: float = 0.,
+        mean_shift_score_threshold: float = 9.0,
+        mean_shift_device: str = "cuda:0",
+
 ):
     """Predict the output of the trained model on the given data.
 
@@ -100,7 +112,22 @@ def predict(
         mb_token = batch["mb_token"]
         if cur_mb_nr != prev_mb_nr:
             if prev_mb_nr != 0:
-                save_output(cur_mb_data, out_dir, mb_token)
+                unique_verts, unique_scores, out_file_csv = save_output(cur_mb_data, out_dir, mb_token)
+                if mean_shift_output:
+                    print("Performing mean shift...")
+                    clusters, out_p_num = mean_shift_for_scores(positions=unique_verts, 
+                                                     scores=unique_scores, 
+                                                     bandwidth=mean_shift_bandwidth, 
+                                                     max_iter=mean_shift_max_iter, 
+                                                     margin=mean_shift_margin, 
+                                                     score_threshold=mean_shift_score_threshold, 
+                                                     device=mean_shift_device)
+                    store_clusters(
+                        csv_file=out_file_csv,
+                        out_dir=out_dir,
+                        out_pos=clusters,
+                        out_p_num=out_p_num,
+                    )
                 cur_mb_data = {
                     "verts": [],
                     "scores": [],
@@ -117,4 +144,19 @@ def predict(
         cur_mb_data["weights"].append(vert_weights.detach().cpu().numpy())
 
 
-    save_output(cur_mb_data, out_dir, mb_token)
+    unique_verts, unique_scores, out_file_csv = save_output(cur_mb_data, out_dir, mb_token)
+    if mean_shift_output:
+        print("Performing mean shift...")
+        clusters, out_p_num = mean_shift_for_scores(positions=unique_verts, 
+                                         scores=unique_scores, 
+                                         bandwidth=mean_shift_bandwidth, 
+                                         max_iter=mean_shift_max_iter, 
+                                         margin=mean_shift_margin, 
+                                         score_threshold=mean_shift_score_threshold, 
+                                         device=mean_shift_device)
+        store_clusters(
+            csv_file=out_file_csv,
+            out_dir=out_dir,
+            out_pos=clusters,
+            out_p_num=out_p_num,
+        )
