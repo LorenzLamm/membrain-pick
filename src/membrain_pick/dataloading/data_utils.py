@@ -1,3 +1,4 @@
+import lxml.etree as ET
 import pandas as pd
 import numpy as np
 import vtk
@@ -96,3 +97,40 @@ def store_point_and_vectors_in_vtp(
     if writer.Write() != 1:
         error_msg = "Error writing the file"
         print(error_msg)
+
+
+def read_GT_data_membranorama_xml(gt_file_name, return_orientation=False):
+    pos_dict = {}
+    orientation_dict = {}
+    tree = ET.parse(gt_file_name)
+    root = tree.getroot()
+    for i, elem in enumerate(root):
+        if elem.tag == 'PointGroups':
+            coords_id = i
+            break
+    point_groups = root[coords_id]
+    for particle_group in point_groups:
+        positions = np.zeros((0, 3))
+        orientations = np.zeros((0, 3))
+        for point in particle_group:
+            cur_pos = np.expand_dims(np.array(point.attrib['Position'].split(','), dtype=float), 0)
+            positions = np.concatenate((positions, cur_pos), 0)
+            if return_orientation:
+                cur_orientation = np.expand_dims(np.array(point.attrib['Orientation'].split(','), dtype=float), 0)
+                orientations = np.concatenate((orientations, cur_orientation), 0)
+
+
+        store_token = particle_group.attrib['Name']
+        if store_token not in pos_dict.keys():
+            pos_dict[store_token] = np.zeros((0, 3))
+        pos_dict[store_token] = np.concatenate((pos_dict[store_token], positions), axis=0)
+
+        if return_orientation:
+            orientations = np.rad2deg(orientations)
+            if store_token not in orientation_dict.keys():
+                orientation_dict[store_token] = np.zeros((0, 3))
+            orientation_dict[store_token] = np.concatenate((orientation_dict[store_token], orientations), axis=0)
+
+    if return_orientation:
+        return pos_dict, orientation_dict
+    return pos_dict
