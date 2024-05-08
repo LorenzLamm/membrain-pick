@@ -3,6 +3,19 @@ from scipy.ndimage import label
 from membrain_pick.bbox_utils import get_expanded_bounding_box, crop_array_with_bounding_box
 
 
+def remove_unused_vertices(points, faces, point_normals):
+    used_vertices = np.unique(faces.flatten())
+    # Create new points and normals arrays using the used vertices
+    new_points = points[used_vertices]
+    new_normals = point_normals[used_vertices]
+    
+    # Create a mapping from old vertex indices to new indices
+    index_mapping = {old_index: new_index for new_index, old_index in enumerate(used_vertices)}
+    
+    # Apply the mapping to the faces to update their vertex indices
+    new_faces = np.vectorize(index_mapping.get)(faces)
+    return new_points, new_faces, new_normals
+
 def get_connected_components(seg, only_largest=True):
     seg = seg > 0
     seg, _ = label(seg)

@@ -55,8 +55,13 @@ class MemSegDiffusionNetDataModule(pl.LightningDataModule):
         overfit: bool = False,
         force_recompute: bool = False,
         overfit_mb: bool = False,
+        allpos:bool = False,
+        use_psii: bool = True,
+        use_b6f: bool = False,
+        use_uk: bool = False,
         cache_dir: Optional[str] = None,
         augment_all: bool = True,
+        aug_prob_to_one: bool = False,
         pixel_size: float = 1.0,
         max_tomo_shape: int = 928,
         k_eig: int = 128,
@@ -78,6 +83,11 @@ class MemSegDiffusionNetDataModule(pl.LightningDataModule):
         self.augment_all = augment_all
         self.pixel_size = pixel_size
         self.max_tomo_shape = max_tomo_shape
+        self.allpos = allpos
+        self.use_psii = use_psii
+        self.use_b6f = use_b6f
+        self.use_uk = use_uk
+        self.aug_prob_to_one = aug_prob_to_one
 
 
         self.k_eig = k_eig
@@ -92,51 +102,68 @@ class MemSegDiffusionNetDataModule(pl.LightningDataModule):
 
     def setup(self, stage: Optional[str] = None):
         if stage == 'fit' or stage is None:
-            self.train_dataset = MemSegDiffusionNetDataset(
-                csv_folder=self.csv_folder_train,
-                train=True,
-                train_pct=1.0,
-                load_only_sampled_points=self.load_n_sampled_points,
-                max_tomo_shape=self.max_tomo_shape,
-                overfit=self.overfit,
-                force_recompute=self.force_recompute,
-                overfit_mb=self.overfit_mb,
-                cache_dir=self.cache_dir,
-                augment_all=self.augment_all,
-                pixel_size=self.pixel_size,
-                k_eig=self.k_eig,
-            )
-            self.val_dataset = MemSegDiffusionNetDataset(
-                csv_folder=self.csv_folder_val,
-                train=False,
-                train_pct=0.0,
-                load_only_sampled_points=self.load_n_sampled_points,
-                max_tomo_shape=self.max_tomo_shape,
-                overfit=self.overfit,
-                force_recompute=self.force_recompute,
-                overfit_mb=self.overfit_mb,
-                cache_dir=self.cache_dir,
-                augment_all=self.augment_all,
-                pixel_size=self.pixel_size,
-                k_eig=self.k_eig,
-            )
+            if self.train_dataset is None:
+                self.train_dataset = MemSegDiffusionNetDataset(
+                    csv_folder=self.csv_folder_train,
+                    train=True,
+                    train_pct=1.0,
+                    load_only_sampled_points=self.load_n_sampled_points,
+                    max_tomo_shape=self.max_tomo_shape,
+                    overfit=self.overfit,
+                    force_recompute=self.force_recompute,
+                    overfit_mb=self.overfit_mb,
+                    cache_dir=self.cache_dir,
+                    augment_all=self.augment_all,
+                    aug_prob_to_one=self.aug_prob_to_one,
+                    pixel_size=self.pixel_size,
+                    k_eig=self.k_eig,
+                    allpos=self.allpos,
+                    use_psii=self.use_psii,
+                    use_b6f=self.use_b6f,
+                    use_uk=self.use_uk,
+                )
+            if self.val_dataset is None:
+                self.val_dataset = MemSegDiffusionNetDataset(
+                    csv_folder=self.csv_folder_val,
+                    train=False,
+                    train_pct=0.0,
+                    load_only_sampled_points=self.load_n_sampled_points,
+                    max_tomo_shape=self.max_tomo_shape,
+                    overfit=self.overfit,
+                    force_recompute=self.force_recompute,
+                    overfit_mb=self.overfit_mb,
+                    cache_dir=self.cache_dir,
+                    augment_all=self.augment_all,
+                    pixel_size=self.pixel_size,
+                    k_eig=self.k_eig,
+                    allpos=self.allpos,
+                    use_psii=self.use_psii,
+                    use_b6f=self.use_b6f,
+                    use_uk=self.use_uk,
+                )
             self.parameter_len = self.train_dataset.get_parameter_len()
         elif stage == 'test' or stage is None:
-            self.test_dataset = MemSegDiffusionNetDataset(
-                csv_folder=self.csv_folder_test,
-                train=False,
-                train_pct=0.0,
-                is_single_mb=self.is_single_mb,
-                load_only_sampled_points=self.load_n_sampled_points,
-                max_tomo_shape=self.max_tomo_shape,
-                overfit=self.overfit,
-                force_recompute=self.force_recompute,
-                overfit_mb=self.overfit_mb,
-                cache_dir=self.cache_dir,
-                augment_all=self.augment_all,
-                pixel_size=self.pixel_size,
-                k_eig=self.k_eig,
-            )
+            if self.test_dataset is None:
+                self.test_dataset = MemSegDiffusionNetDataset(
+                    csv_folder=self.csv_folder_test,
+                    train=False,
+                    train_pct=0.0,
+                    is_single_mb=self.is_single_mb,
+                    load_only_sampled_points=self.load_n_sampled_points,
+                    max_tomo_shape=self.max_tomo_shape,
+                    overfit=self.overfit,
+                    force_recompute=self.force_recompute,
+                    overfit_mb=self.overfit_mb,
+                    cache_dir=self.cache_dir,
+                    augment_all=self.augment_all,
+                    pixel_size=self.pixel_size,
+                    k_eig=self.k_eig,
+                    allpos=self.allpos,
+                    use_psii=self.use_psii,
+                    use_b6f=self.use_b6f,
+                    use_uk=self.use_uk,
+                    # test_mb="T1S1M18"
+                )
 
 
     def train_dataloader(self):

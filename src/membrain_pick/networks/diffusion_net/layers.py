@@ -66,6 +66,7 @@ class LearnedTimeDiffusion(nn.Module):
             else:
                 time = self.diffusion_time
 
+
             diffusion_coefs = torch.exp(-evals.unsqueeze(-1) * time.unsqueeze(0))
             x_diffuse_spec = diffusion_coefs * x_spec
 

@@ -192,7 +192,6 @@ def edge_tangent_vectors(verts, frames, edges):
     edge_vecs = verts[edges[1, :], :] - verts[edges[0, :], :]
     basisX = frames[edges[0, :], 0, :]
     basisY = frames[edges[0, :], 1, :]
-
     compX = dot(edge_vecs, basisX)
     compY = dot(edge_vecs, basisY)
     edge_tangent = torch.stack((compX, compY), dim=-1)
@@ -298,14 +297,13 @@ def compute_operators(verts, faces, k_eig, normals=None):
     dtype = verts.dtype
     V = verts.shape[0]
     is_cloud = faces.numel() == 0
-
+    
     eps = 1e-8
 
     verts_np = toNP(verts).astype(np.float64)
     faces_np = toNP(faces)
     frames = build_tangent_frames(verts, faces, normals=normals)
     frames_np = toNP(frames)
-
     # Build the scalar Laplacian
     if is_cloud:
         L, M = robust_laplacian.point_cloud_laplacian(verts_np)
@@ -316,7 +314,6 @@ def compute_operators(verts, faces, k_eig, normals=None):
         L = pp3d.cotan_laplacian(verts_np, faces_np, denom_eps=1e-10)
         massvec_np = pp3d.vertex_areas(verts_np, faces_np)
         massvec_np += eps * np.mean(massvec_np)
-    
     if(np.isnan(L.data).any()):
         raise RuntimeError("NaN Laplace matrix")
     if(np.isnan(massvec_np).any()):
@@ -326,7 +323,7 @@ def compute_operators(verts, faces, k_eig, normals=None):
     L_coo = L.tocoo()
     inds_row = L_coo.row
     inds_col = L_coo.col
-
+    
     # === Compute the eigenbasis
     if k_eig > 0:
 
@@ -359,7 +356,6 @@ def compute_operators(verts, faces, k_eig, normals=None):
         evals_np = np.zeros((0))
         evecs_np = np.zeros((verts.shape[0],0))
 
-
     # == Build gradient matrices
 
     # For meshes, we use the same edges as were used to build the Laplacian. For point clouds, use a whole local neighborhood
@@ -369,7 +365,6 @@ def compute_operators(verts, faces, k_eig, normals=None):
         edges = torch.tensor(np.stack((inds_row, inds_col), axis=0), device=device, dtype=faces.dtype)
         edge_vecs = edge_tangent_vectors(verts, frames, edges)
         grad_mat_np = build_grad(verts, edges, edge_vecs)
-
 
     # Split complex gradient in to two real sparse mats (torch doesn't like complex sparse matrices)
     gradX_np = np.real(grad_mat_np)
@@ -382,7 +377,6 @@ def compute_operators(verts, faces, k_eig, normals=None):
     evecs = torch.from_numpy(evecs_np).to(device=device, dtype=dtype)
     gradX = utils.sparse_np_to_torch(gradX_np).to(device=device, dtype=dtype)
     gradY = utils.sparse_np_to_torch(gradY_np).to(device=device, dtype=dtype)
-
     return frames, massvec, L, evals, evecs, gradX, gradY
 
 
@@ -526,10 +520,8 @@ def get_operators(verts, faces, k_eig=128, op_cache_dir=None, normals=None, over
                 break
 
     if not found:
-
         # No matching entry found; recompute.
         frames, mass, L, evals, evecs, gradX, gradY = compute_operators(verts, faces, k_eig, normals=normals)
-
         dtype_np = np.float32
 
         # Store it in the cache

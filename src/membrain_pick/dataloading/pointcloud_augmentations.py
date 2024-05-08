@@ -16,7 +16,8 @@ from membrain_pick.dataloading.pointcloud_transforms import (
 )
 
 
-def get_training_transforms(tomo_shape_max, prob_to_one=False):
+def get_training_transforms(tomo_shape_max, pixel_size, prob_to_one=False):
+    tomo_shape_max /= pixel_size
     list_of_augs = [
         NormalizeFeatures(),
         AnyAugmentation(
@@ -65,11 +66,12 @@ def get_training_transforms(tomo_shape_max, prob_to_one=False):
         RandomBrightnessGradient(
             apply_prob=(1.0 if prob_to_one else 0.5),
             max_brightness_gradient_strength=1.,
-            brightness_gradient_scale_max=0.75 * tomo_shape_max / tomo_shape_max # placeholder in case we want to scale the gradient
+            brightness_gradient_scale_max=0.75 * tomo_shape_max,
         ),
         RandomLocalBrightnessGamma(
             apply_prob=(1.0 if prob_to_one else 0.5),
-            local_brightness_gamma_scale_range=(0., 0.5 * tomo_shape_max / tomo_shape_max),
+            local_brightness_gamma_scale_range=(0., 1.),
+
         ),
     ]
     combined_transform = RandomFeatureAugmentation(list_of_augs)

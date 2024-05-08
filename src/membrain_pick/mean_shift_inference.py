@@ -1,4 +1,4 @@
-from membrain_seg.segmentation.dataloading.data_utils import get_csv_data, store_array_in_csv, store_point_and_vectors_in_vtp
+from membrain_pick.dataloading.data_utils import get_csv_data, store_array_in_csv, store_point_and_vectors_in_vtp
 from membrain_pick.optimization.mean_shift_utils import MeanShiftForwarder
 import numpy as np
 import torch

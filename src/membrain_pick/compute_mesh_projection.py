@@ -100,7 +100,7 @@ def get_tomo_values_along_normal(point, normal, tomo, b_splines=True, steps=(-6,
     return values
 
 
-def compute_positions_along_normals(mesh, steps=(-6, 7), step_size=0.25, verts=None, normals=None):
+def compute_positions_along_normals(mesh, steps=(-6, 7), step_size=0.25, verts=None, normals=None, input_pixel_size=14.08, output_pixel_size=10.0):
     # Get vertices and triangle combinations
     if verts is None:
         verts = mesh.points
@@ -108,12 +108,16 @@ def compute_positions_along_normals(mesh, steps=(-6, 7), step_size=0.25, verts=N
         normals = mesh.point_normals
 
     positions = verts[:, None, :] + normals[:, None, :] * np.arange(steps[0], steps[1])[None, :, None] * step_size
+
+    # Go back to original pixel size to match tomogram
+    pixel_factor = input_pixel_size / output_pixel_size
+    positions = positions / pixel_factor
     return positions
 
 
-def compute_values_along_normals(mesh, tomo, b_splines=True, steps=(-6, 7), step_size=0.25, verts=None, normals=None):
+def compute_values_along_normals(mesh, tomo, b_splines=True, steps=(-6, 7), input_pixel_size=14.08, output_pixel_size=10., step_size=0.25, verts=None, normals=None):
     # Get vertices and triangle combinations
-    positions = compute_positions_along_normals(mesh, steps=steps, step_size=step_size, verts=verts, normals=normals)
+    positions = compute_positions_along_normals(mesh, steps=steps, step_size=step_size, verts=verts, normals=normals, input_pixel_size=input_pixel_size, output_pixel_size=output_pixel_size)
     positions_shape = positions.shape
     positions = positions.reshape(-1, 3)
     positions_transposed = positions.T
@@ -145,12 +149,17 @@ def correct_normals(mesh):
 
     return mesh
 
-def convert_seg_to_evenly_spaced_mesh(seg, smoothing=2000, barycentric_area=10, normals_correction=False):
+
+
+def convert_seg_to_evenly_spaced_mesh(seg, smoothing=2000, barycentric_area=10, normals_correction=False, input_pixel_size=14.08, output_pixel_size=10.0):
     mesh = convert_seg_to_mesh(seg=seg,
                         smoothing=smoothing,
                         voxel_size=1.0)
     mesh = mesh.decimate(0.5)
     
+    pixel_factor = input_pixel_size / output_pixel_size
+    mesh.points = mesh.points * pixel_factor
+
     cluster_points = int(mesh.area / barycentric_area)
     clus = pyacvd.Clustering(mesh)
     clus.subdivide(3)
@@ -158,6 +167,7 @@ def convert_seg_to_evenly_spaced_mesh(seg, smoothing=2000, barycentric_area=10, 
     remesh = clus.create_mesh()
     if normals_correction:
         remesh = correct_normals(remesh)
+
     return remesh
 
 

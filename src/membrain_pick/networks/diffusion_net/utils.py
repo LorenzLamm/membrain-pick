@@ -13,7 +13,8 @@ def toNP(x):
     """
     Really, definitely convert a torch tensor to a numpy array
     """
-    return x.detach().to(torch.device('cpu')).numpy()
+    x = x.detach().to(torch.device('cpu')).numpy()
+    return np.ascontiguousarray(x)
 
 def label_smoothing_log_loss(pred, labels, smoothing=0.0):
     n_class = pred.shape[-1]
