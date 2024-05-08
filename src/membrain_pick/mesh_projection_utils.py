@@ -79,7 +79,6 @@ def face_normals(verts, faces, normalized=True):
 
     return raw_normal
 
-
 def get_normals_from_face_order(mesh, return_face_normals=False):
     """
     Get normals from face order
