@@ -14,6 +14,10 @@ def train(
     training_dir: str = "./training_output",
     project_name: str = "test_diffusion",
     sub_name: str = "0",
+    allpos: bool=False,
+    use_psii: bool=True,
+    use_b6f: bool=False,
+    use_uk: bool=False,
 
     # Dataset parameters
     overfit: bool = False,
@@ -21,6 +25,7 @@ def train(
     partition_size: int = 2000,
     force_recompute_partitioning: bool = False,
     augment_all: bool = True,
+    aug_prob_to_one: bool = False,
     pixel_size: float = 1.0,
     max_tomo_shape: int = 928,
     k_eig: int = 128,
@@ -44,6 +49,7 @@ def train(
     max_epochs: int = 1000,
 
     ):
+
     train_path = os.path.join(data_dir, "train")
     val_path = os.path.join(data_dir, "val")
     cache_dir_mb = os.path.join(training_dir, "mesh_cache")
@@ -59,14 +65,24 @@ def train(
         overfit_mb=overfit_mb,
         cache_dir=cache_dir_mb,
         augment_all=augment_all,
+        aug_prob_to_one=aug_prob_to_one,
         pixel_size=pixel_size,
         max_tomo_shape=max_tomo_shape,
+        allpos=allpos,
+        use_psii=use_psii,
+        use_b6f=use_b6f,
+        use_uk=use_uk,
         k_eig=k_eig,
         batch_size=1,
         num_workers=0,
         pin_memory=False,
+
     )
     data_module.setup()
+    # data_module.train_dataset.test_loading(out_dir="./test_loading/", idx=0, times=5)
+    # data_module.train_dataset.test_loading(out_dir="./test_loading/", idx=1, times=5)
+    # data_module.train_dataset.test_loading(out_dir="./test_loading/", idx=2, times=5)
+    # exit()
 
     model = DiffusionNetModule(
         C_in=data_module.parameter_len,
@@ -82,6 +98,7 @@ def train(
         with_gradient_rotations=with_gradient_rotations,
         device=device,
         one_D_conv_first=one_D_conv_first,
+        max_epochs=max_epochs,
     )
 
     checkpointing_name = project_name + "_" + sub_name

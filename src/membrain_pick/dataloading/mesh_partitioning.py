@@ -75,7 +75,7 @@ def gaussian_weights(dists, sigma):
     return np.exp(-dists**2 / (2 * sigma**2))
 
 
-def find_adjacent_faces(faces, verts: np.ndarray, start_face: int, max_sampled_points: int):
+def find_adjacent_faces(faces, verts: np.ndarray, start_face: int, max_sampled_points: int, solver=None):
         """
         Finds all faces adjacent to the specified face.
 
@@ -96,7 +96,8 @@ def find_adjacent_faces(faces, verts: np.ndarray, start_face: int, max_sampled_p
             Indices of the adjacent faces.
         """
         
-        solver = pp3d.MeshHeatMethodDistanceSolver(verts,faces)
+        if solver is None:
+            solver = pp3d.MeshHeatMethodDistanceSolver(verts,faces)
         
         # Choose first vertex of the face as the starting point
         start_vert = faces[start_face][0]
@@ -223,7 +224,6 @@ def load_cached_partitioning(cache_dir: str,
                              part_lists: Tuple[List[np.ndarray], ...],
                              mb_idx: int,
                              overfit: bool
-
 ):
      cur_cache_count = 0
      cache_found = False
@@ -264,11 +264,13 @@ def compute_and_cache_partitioning(
     total_len = face_candidates.shape[0]
     prev_len = 0
     pbar = tqdm(total=total_len)
+
+    solver = pp3d.MeshHeatMethodDistanceSolver(mb[:, :3], faces[mb_idx])
     while face_candidates.shape[0] > 0:
         if cache_path is not None:
             cur_cache_path = cache_path[:-4] + "_partnr" + str(part_counter) + ".npz"
         face_start = face_candidates[0]
-        adj_faces, adj_faces_weights = find_adjacent_faces(faces[mb_idx], mb[:, :3], face_start, max_sampled_points)
+        adj_faces, adj_faces_weights = find_adjacent_faces(faces[mb_idx], mb[:, :3], face_start, max_sampled_points, solver=solver)
         cur_part_verts, cur_part_labels, cur_part_faces, cur_part_normals, cur_part_gts, cur_part_vert_weights = get_partition_from_face_list(
                 mb=mb,
                 faces=faces[mb_idx],
@@ -290,7 +292,7 @@ def compute_and_cache_partitioning(
         }
         append_partitioning_data(cache, list_of_partitioning_data, mb_idx)
         face_candidates = exclude_faces_from_candidates(adj_faces, face_candidates, adj_faces_weights, min_gaussian_weight)
-        if overfit and part_counter > 2:
+        if overfit and part_counter > 3:
             break
         if cache_path is not None:
             np.savez(cur_cache_path, **cache)

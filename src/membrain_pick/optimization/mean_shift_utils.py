@@ -145,7 +145,6 @@ class MeanShiftForwarder():
         coords = x.clone()
         seeds = x
         mean, p_num, mean_weights = self.mean_shift_for_seeds(coords.squeeze(), weights.squeeze(), seeds.squeeze())
-        print("Number of clusters:", len(mean))
-        mean = self.clean_cluster_centers_dbscan(mean.cpu().numpy(), eps=3.5)
-        print("Number of clusters after cleanup:", len(mean))
+        mean = self.clean_cluster_centers_dbscan(mean.cpu().numpy(), eps=0.3 * self.bandwidth)
+        print("Number of clusters (after cleanup):", len(mean))
         return mean, p_num, mean_weights

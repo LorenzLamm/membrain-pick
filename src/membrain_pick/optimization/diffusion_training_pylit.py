@@ -1,12 +1,13 @@
 """ Pytorch lightning module for training DiffusionNet"""
 import pytorch_lightning as pl
 import torch
-from torch.optim import Adam
+from torch.optim import Adam, SGD
 
 from membrain_pick.networks.diffusion_net import DiffusionNet
 from membrain_pick.optimization.mean_shift_utils import MeanShiftForwarder
 from membrain_pick.optimization.mean_shift_losses import MeanShift_loss
 from membrain_pick.optimization.optim_utils import weighted_MSELoss, CombinedLoss
+from torch.optim.lr_scheduler import StepLR, CosineAnnealingWarmRestarts, ReduceLROnPlateau, LambdaLR
 
 
 class DiffusionNetModule(pl.LightningModule):
@@ -20,6 +21,7 @@ class DiffusionNetModule(pl.LightningModule):
                  mean_shift_bandwidth=7.,
                  mean_shift_max_iter=10,
                  mean_shift_margin=2.,
+                 max_epochs=1000,
                  dropout=True, 
                  with_gradient_features=True, 
                  with_gradient_rotations=True, 
@@ -31,6 +33,7 @@ class DiffusionNetModule(pl.LightningModule):
                  visualize_grad_rotations=False, 
                  visualize_grad_features=False):
         super().__init__()
+        self.max_epochs = max_epochs
         # Initialize the DiffusionNet with the given arguments.
         self.model = DiffusionNet(C_in=C_in, 
                                   C_out=C_out, 
@@ -64,7 +67,7 @@ class DiffusionNetModule(pl.LightningModule):
             "mse": mse_loss_fn,
         }
         if self.mean_shift_output:
-            self.ms_loss = MeanShift_loss()
+            self.ms_loss = MeanShift_loss(use_loss=True)
             self.criteria["ms"] = self.ms_loss
         self.criterion = CombinedLoss(self.criteria)
 
@@ -78,7 +81,7 @@ class DiffusionNetModule(pl.LightningModule):
             "mse": self.model(features, mass, L, evals, evecs, gradX, gradY, faces)
         }
         if self.mean_shift_output:
-            out_ms = self.ms_module.mean_shift_for_seeds(
+            out_ms, _, _ = self.ms_module.mean_shift_for_seeds(
                 coords=verts_orig, 
                 nn_weights=out["mse"], 
                 seeds=verts_orig
@@ -88,9 +91,16 @@ class DiffusionNetModule(pl.LightningModule):
         return out
 
     def configure_optimizers(self):
-        # Configure optimizers and schedulers (if needed)
         optimizer = Adam(self.parameters(), lr=1e-3)
-        return optimizer
+        scheduler = {
+            'scheduler': LambdaLR(
+                optimizer, 
+                lr_lambda=lambda epoch: (1 - epoch / self.max_epochs) ** 0.9
+            ),
+            'interval': 'epoch',  # Adjust the interval as needed
+            'frequency': 1  # Adjust the frequency as needed
+        }
+        return [optimizer], [scheduler]
     
     def on_train_epoch_start(self):
         self.total_train_loss = 0

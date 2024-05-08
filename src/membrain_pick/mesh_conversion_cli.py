@@ -17,7 +17,7 @@ class OrderCommands(TyperGroup):
 
 cli = typer.Typer(
     cls=OrderCommands,
-    add_completion=True,
+    add_completion=False,
     no_args_is_help=True,
     rich_markup_mode="rich",
     pretty_exceptions_show_locals=False
@@ -325,6 +325,9 @@ def train(
     augment_all: bool = Option(  # noqa: B008
         True, help="Should all data be augmented?"
     ),
+    aug_prob_to_one: bool = Option(  # noqa: B008
+        False, help="Should the probability be set to one?"
+    ),
     pixel_size: float = Option(  # noqa: B008
         1.0, help="Pixel size of the tomogram."
     ),
@@ -370,6 +373,19 @@ def train(
     max_epochs: int = Option(  # noqa: B008
         1000, help="Maximum number of epochs."
     ),
+    allpos: bool = Option(  # noqa: B008
+        False, help="Should all positive samples be used?"
+    ),
+    use_psii: bool = Option(  # noqa: B008
+        True, help="Should PSII be used?"
+    ),
+    use_uk: bool = Option(  # noqa: B008
+        False, help="Should UK be used?"
+    ),
+    use_b6f: bool = Option(  # noqa: B008
+        False, help="Should b6f be used?"
+    ),
+
 ):
     """Train a diffusion net model.
 
@@ -387,9 +403,14 @@ def train(
         partition_size=partition_size,
         force_recompute_partitioning=force_recompute_partitioning,
         augment_all=augment_all,
+        aug_prob_to_one=aug_prob_to_one,
         pixel_size=pixel_size,
         max_tomo_shape=max_tomo_shape,
         k_eig=k_eig,
+        allpos=allpos,
+        use_psii=use_psii,
+        use_uk=use_uk,
+        use_b6f=use_b6f,
         N_block=N_block,
         C_width=C_width,
         dropout=dropout,

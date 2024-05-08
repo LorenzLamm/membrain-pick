@@ -11,7 +11,7 @@ from membrain_pick.dataloading.data_utils import store_array_in_csv, store_point
 from membrain_pick.compute_mesh_projection import convert_seg_to_evenly_spaced_mesh, compute_values_along_normals
 from membrain_pick.mesh_class import Mesh
 
-from membrain_pick.mesh_projection_utils import get_connected_components, get_cropped_arrays, get_normals_from_face_order, get_connected_components
+from membrain_pick.mesh_projection_utils import get_connected_components, get_cropped_arrays, get_normals_from_face_order, get_connected_components, remove_unused_vertices
 
 
 def match_tomo_pixel_size(tomo_file, tomo_file_out, pixel_size_out=14.08, pixel_size_in=None, match_file=None, tmp_folder="./temp_mesh_data"):
@@ -95,6 +95,9 @@ def meshes_for_folder_structure(mb_folder: str,
 
     tomo_files = [os.path.join(tomo_folder, f) for f in os.listdir(tomo_folder) if f.endswith(".mrc") or f.endswith(".rec")]
     mb_subfolders = [os.path.join(mb_folder, f) for f in os.listdir(mb_folder) if os.path.isdir(os.path.join(mb_folder, f))]
+    mb_subfolders = [os.path.join(mb_folder, os.path.basename(f).split(".")[0]) for f in tomo_files if os.path.isdir(os.path.join(mb_folder, os.path.basename(f).split(".")[0]))]
+
+    assert len(tomo_files) == len(mb_subfolders)
     
     for tomo_file, mb_folder in zip(tomo_files, mb_subfolders):
         out_tomo_folder = os.path.join(out_folder, os.path.basename(tomo_file).split(".")[0])
@@ -102,15 +105,17 @@ def meshes_for_folder_structure(mb_folder: str,
 
         if match_size_flag:
             tomo_file_tmp = os.path.join(temp_folder, os.path.basename(tomo_file))
-            match_tomo_pixel_size(tomo_file, tomo_file_tmp, pixel_size_out=output_pixel_size, pixel_size_in=input_pixel_size)
+            # match_tomo_pixel_size(tomo_file, tomo_file_tmp, pixel_size_out=output_pixel_size, pixel_size_in=input_pixel_size)
             tomo_file = tomo_file_tmp
         
         tomo = load_tomogram(tomo_file).data
+        tomo_token = os.path.basename(mb_folder)
 
         mesh_for_tomo_mb_folder(tomo_file=tomo_file,
                                 mb_folder=mb_folder,
                                 out_folder=out_tomo_folder,
                                 tomo=tomo,
+                                tomo_token=tomo_token,
                                 only_obj=only_obj,
                                 match_size_flag=match_size_flag,
                                 temp_folder=temp_folder,
@@ -129,6 +134,7 @@ def mesh_for_tomo_mb_folder(tomo_file: str,
                             mb_folder: str,
                             out_folder: str,
                             tomo: np.ndarray = None,
+                            tomo_token=None,
                             only_obj=False,
                             match_size_flag=False,
                             temp_folder="./temp_mesh_data",
@@ -174,12 +180,18 @@ def mesh_for_tomo_mb_folder(tomo_file: str,
     
     if tomo is None:
         tomo = load_tomogram(tomo_file).data
+        if tomo_token is None:
+            tomo_token = os.path.basename(tomo_file).split(".")[0]
+
+    if tomo_token is None:
+        tomo_token = "Tomo"
 
     for mb_file in mb_files:
         mesh_for_single_mb_file(mb_file=mb_file,
                                 tomo_file=tomo_file,
                                 out_folder=out_folder,
                                 tomo=tomo,
+                                tomo_token=tomo_token,
                                 only_obj=only_obj,
                                 match_size_flag=match_size_flag,
                                 temp_folder=temp_folder,
@@ -198,6 +210,7 @@ def mesh_for_single_mb_file(mb_file: str,
                             tomo_file: str,
                             out_folder: str,
                             tomo: np.ndarray = None,
+                            tomo_token: str = None,
                             only_obj=False,
                             match_size_flag=False,
                             temp_folder="./temp_mesh_data",
@@ -226,19 +239,29 @@ def mesh_for_single_mb_file(mb_file: str,
 
     if tomo is None:
         tomo = load_tomogram(tomo_file).data
+        if tomo_token is None:
+            tomo_token = os.path.basename(tomo_file).split(".")[0]
+
+    if tomo_token is None:
+        tomo_token = "Tomo"
+    
 
     convert_to_mesh(mb_file, 
                     tomo_file, 
                     out_folder, 
                     tomo=tomo, 
+                    token=tomo_token,
                     only_obj=only_obj,
                     step_numbers=step_numbers,
                     step_size=step_size,
                     mesh_smoothing=mesh_smoothing,
                     barycentric_area=barycentric_area,
+                    input_pixel_size=input_pixel_size,
+                    output_pixel_size=output_pixel_size,
                     crop_box_flag=crop_box_flag,
                     only_largest_component=only_largest_component, 
                     min_connected_size=min_connected_size)
+
 
 
 def convert_to_mesh(mb_file, 
@@ -246,16 +269,18 @@ def convert_to_mesh(mb_file,
                     out_folder, 
                     tomo=None, 
                     only_obj=False,
+                    token=None,
                     step_numbers=(-6, 7),
                     step_size=0.25,
                     mesh_smoothing=1000,
                     barycentric_area=1.0,
+                    input_pixel_size=None,
+                    output_pixel_size=None,
                     crop_box_flag=False,
                     only_largest_component=True, 
                     min_connected_size=1e4):
     
     
-    print(f"Processing {mb_file}")
     mb_key = os.path.basename(mb_file).split(".")[0]
     seg = load_tomogram(mb_file).data
 
@@ -279,39 +304,47 @@ def convert_to_mesh(mb_file,
             cur_seg = seg == k
             cur_tomo = tomo
 
+        # This returns vertices in the new pixel size -- be careful!!
         mesh = convert_seg_to_evenly_spaced_mesh(seg=cur_seg,
                                                  smoothing=mesh_smoothing,
+                                                 input_pixel_size=input_pixel_size,
+                                                 output_pixel_size=output_pixel_size,
                                                  barycentric_area=barycentric_area)
         
         points, faces, point_normals = get_normals_from_face_order(mesh)
+
+        points, faces, point_normals = remove_unused_vertices(points, faces, point_normals)
 
         if not only_obj:
             normal_values = compute_values_along_normals(mesh=mesh, 
                                                         tomo=cur_tomo, 
                                                         steps=step_numbers, 
                                                         step_size=step_size, 
+                                                        input_pixel_size=input_pixel_size,
+                                                        output_pixel_size=output_pixel_size,
                                                         verts=points,
                                                         normals=point_normals)
             print("Computed values along normals")
 
         
-        out_file = os.path.join(out_folder, cur_mb_key + "_mesh_data.csv")
-        out_file_faces = os.path.join(out_folder, cur_mb_key + "_mesh_faces.csv")
-        out_file_normals = os.path.join(out_folder, cur_mb_key + "_mesh_normals.csv")
-        out_file_normals_vtp = os.path.join(out_folder, mb_key + "_mesh_normals.vtp")
+        out_file = os.path.join(out_folder, token + "_" + cur_mb_key + "_mesh_data.csv")
+        out_file_faces = os.path.join(out_folder, token + "_" + cur_mb_key + "_mesh_faces.csv")
+        out_file_normals = os.path.join(out_folder, token + "_" + cur_mb_key + "_mesh_normals.csv")
+        out_file_normals_vtp = os.path.join(out_folder, token + "_" + mb_key + "_mesh_normals.vtp")
 
         if not only_obj:
-            out_data = np.concatenate([mesh.points, normal_values], axis=1)
+            out_data = np.concatenate([points, normal_values], axis=1)
             store_array_in_csv(out_file, out_data)
             store_array_in_csv(out_file_faces, faces)
-            store_array_in_csv(out_file_normals, mesh.point_normals*(-1))
+            store_array_in_csv(out_file_normals, point_normals*(-1))
 
             store_point_and_vectors_in_vtp(out_file_normals_vtp, mesh.points, mesh.point_normals, in_scalars=[normal_values[:, k] for k in range(normal_values.shape[1])])
 
-        mesh = Mesh(vertices=mesh.points, triangle_combos=faces+1)
+        mesh = Mesh(vertices=points, triangle_combos=faces+1)
         mesh.store_in_file(out_file.replace(".csv", ".obj"))
-        store_tomogram(out_file.replace(".csv", ".mrc"), cur_tomo)
-        store_tomogram(out_file.replace(".csv", "_seg.mrc"), cur_seg)
+        if crop_box_flag:
+            store_tomogram(out_file.replace(".csv", ".mrc"), cur_tomo)
+            store_tomogram(out_file.replace(".csv", "_seg.mrc"), cur_seg)
 
 
 
