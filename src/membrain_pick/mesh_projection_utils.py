@@ -66,7 +66,8 @@ def face_normals(verts, faces, normalized=True):
 
     return raw_normal
 
-def get_normals_from_face_order(mesh):
+
+def get_normals_from_face_order(mesh, return_face_normals=False):
     """
     Get normals from face order
 
@@ -82,6 +83,8 @@ def get_normals_from_face_order(mesh):
 
     # Get normals per triangle and assign back to vertices
     mesh_normals = np.array(face_normals(points, faces))
+    if return_face_normals:
+        return points, faces, mesh_normals
+    
     vert_normals = assign_vertex_normals_from_face_normals(points, faces, mesh_normals)
-
     return points, faces, vert_normals
