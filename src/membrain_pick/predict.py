@@ -8,7 +8,7 @@ import pytorch_lightning as pl
 from membrain_pick.dataloading.diffusionnet_datamodule import MemSegDiffusionNetDataModule
 from membrain_pick.optimization.diffusion_training_pylit import DiffusionNetModule
 
-from membrain_pick.dataloading.data_utils import store_array_in_csv, store_point_and_vectors_in_vtp
+from membrain_pick.dataloading.data_utils import store_array_in_csv, store_array_in_npy, store_point_and_vectors_in_vtp
 from membrain_pick.mean_shift_inference import mean_shift_for_scores, store_clusters
 
 
@@ -38,7 +38,8 @@ def save_output(cur_mb_data, out_dir, mb_token):
         unique_labels[i] = all_labels[indices[0]]
         unique_features[i] = all_features[indices[0]]
 
-    store_array_in_csv(out_file_csv, np.concatenate((unique_verts, np.expand_dims(unique_scores, axis=1)), axis=1))
+    store_array_in_csv(out_file_csv, np.concatenate((unique_verts, np.expand_dims(unique_scores, axis=1)), axis=1), header=["x", "y", "z", "score"])
+    store_array_in_npy(out_file_csv.replace(".csv", ".npy"), np.concatenate((unique_verts, np.expand_dims(unique_scores, axis=1)), axis=1))
     store_point_and_vectors_in_vtp(out_file_vtp, unique_verts, in_scalars=[unique_labels, unique_scores] + [unique_features[:, i] for i in range(0, unique_features.shape[1])])
 
     return unique_verts, unique_scores, out_file_csv
@@ -98,7 +99,9 @@ def predict(
                                                     map_location=device,
                                                     strict=False,
                                                     dropout=False,
-                                                    N_block=4, 
+                                                    N_block=6,
+                                                    C_width=8,
+                                                    one_D_conv_first=True
                                                     )
     model.to(device)
     model.eval()
