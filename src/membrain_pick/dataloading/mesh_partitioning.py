@@ -263,13 +263,15 @@ def compute_and_cache_partitioning(
     # Initialize tqdm progress bar with the total equal to the initial number of face candidates
     total_len = face_candidates.shape[0]
     prev_len = 0
+    no_improv_count = 0
     pbar = tqdm(total=total_len)
 
     solver = pp3d.MeshHeatMethodDistanceSolver(mb[:, :3], faces[mb_idx])
     while face_candidates.shape[0] > 0:
         if cache_path is not None:
             cur_cache_path = cache_path[:-4] + "_partnr" + str(part_counter) + ".npz"
-        face_start = face_candidates[0]
+        # random_idx = np.random.randint(face_candidates.shape[0])
+        face_start = face_candidates[0] # better fixed starting point for reproducibility
         adj_faces, adj_faces_weights = find_adjacent_faces(faces[mb_idx], mb[:, :3], face_start, max_sampled_points, solver=solver)
         cur_part_verts, cur_part_labels, cur_part_faces, cur_part_normals, cur_part_gts, cur_part_vert_weights = get_partition_from_face_list(
                 mb=mb,
@@ -298,6 +300,12 @@ def compute_and_cache_partitioning(
             np.savez(cur_cache_path, **cache)
         part_counter += 1
         pbar.update(total_len - face_candidates.shape[0] - prev_len)
+        if total_len - face_candidates.shape[0] - prev_len == 0:
+            no_improv_count += 1
+            if no_improv_count > 10:
+                break
+        else:
+            no_improv_count = 0
         prev_len = total_len - face_candidates.shape[0]
     pbar.close()
 

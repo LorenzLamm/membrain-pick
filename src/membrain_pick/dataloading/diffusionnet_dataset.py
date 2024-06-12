@@ -368,6 +368,7 @@ class MemSegDiffusionNetDataset(Dataset):
                 self.data_paths.append(filename)
 
         self.data_paths.sort()
+
         if not self.is_single_mb:
             if not self.allpos:
                 self.data_paths = [
