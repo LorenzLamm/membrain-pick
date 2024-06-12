@@ -209,9 +209,7 @@ class SeparableDiffusionNetBlock(nn.Module):
 
         # Convolutional layers
         self.conv_layer1 = nn.Conv1d(self.Conv_C_in, self.Conv_C_width, kernel_size=3, padding=1)
-        self.conv_layer2 = nn.Conv1d(self.Conv_C_width, self.C_width, kernel_size=3, padding=1)
-
-
+        self.conv_layer2 = nn.Conv1d(self.Conv_C_width, 1, kernel_size=3, padding=1)
 
 
     def forward(self, x_in, mass, L, evals, evecs, gradX, gradY):
@@ -247,16 +245,17 @@ class SeparableDiffusionNetBlock(nn.Module):
         feature_combined = feature_combined.reshape(-1, self.C_in, self.Conv_C_in)
         feature_combined = feature_combined.permute(0, 2, 1)
         
+
+
         # Apply the conv layers
         x0_out = self.conv_layer1(feature_combined)
         x0_out = F.relu(x0_out)
-        x0_out = F.max_pool1d(x0_out, kernel_size=2, stride=2)
+
+        x0_out = F.max_pool1d(x0_out, kernel_size=3, stride=1, padding=1)
         x0_out = self.conv_layer2(x0_out)
         x0_out = F.relu(x0_out)
-        x0_out = F.max_pool1d(x0_out, kernel_size=2, stride=2)
-
+        x0_out = F.max_pool1d(x0_out, kernel_size=3, stride=1, padding=1)
         x_out = x0_out.reshape(1, x_in.shape[1], -1)
-
         return x_out
         
 
@@ -459,14 +458,23 @@ class DiffusionNet(nn.Module):
         if one_D_conv_first:
             self.conv_block_out_dim = C_width * (C_in // 4)
             self.conv_block = SeparableDiffusionNetBlock(C_in=self.C_in,
-                                    C_width = C_width,
+                                    C_width = 8,
                                       conv_hidden_dims = mlp_hidden_dims,
                                       dropout = dropout,
                                       diffusion_method = diffusion_method,
                                       with_gradient_features = with_gradient_features, 
                                       with_gradient_rotations = with_gradient_rotations,
                                       fixed_time=fixed_time,)
-            self.first_lin = nn.Linear(self.conv_block_out_dim, C_width)
+            self.conv_block2 = SeparableDiffusionNetBlock(C_in=self.C_in,
+                                    C_width = 8,
+                                      conv_hidden_dims = mlp_hidden_dims,
+                                      dropout = dropout,
+                                      diffusion_method = diffusion_method,
+                                      with_gradient_features = with_gradient_features, 
+                                      with_gradient_rotations = with_gradient_rotations,
+                                      fixed_time=fixed_time,)
+            
+            self.first_lin = nn.Linear(self.C_in, C_width)
         else:
             # First and last affine layers
             self.first_lin = nn.Linear(C_in, C_width)
@@ -567,10 +575,11 @@ class DiffusionNet(nn.Module):
         # Apply the first linear layer
         if self.one_D_conv_first:
             x = self.conv_block(x_in, mass, L, evals, evecs, gradX, gradY)
+            x = self.conv_block2(x, mass, L, evals, evecs, gradX, gradY)
             x = self.first_lin(x)
         else:
             x = self.first_lin(x_in)
-      
+        
         # Apply each of the blocks
         for b in self.blocks:
             x = b(x, mass, L, evals, evecs, gradX, gradY)
