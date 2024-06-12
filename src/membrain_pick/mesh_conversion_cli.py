@@ -201,7 +201,7 @@ def convert_mb_folder(
     """
     mesh_for_tomo_mb_folder(
         mb_folder=mb_folder,
-        tomo_path=tomo_path,
+        tomo_file=tomo_path,
         out_folder=out_folder,
         only_obj=only_obj,
         match_size_flag=match_size_flag,
