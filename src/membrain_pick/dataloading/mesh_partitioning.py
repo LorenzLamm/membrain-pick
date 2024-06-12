@@ -271,7 +271,7 @@ def compute_and_cache_partitioning(
         if cache_path is not None:
             cur_cache_path = cache_path[:-4] + "_partnr" + str(part_counter) + ".npz"
         # random_idx = np.random.randint(face_candidates.shape[0])
-        face_start = face_candidates[0] # better fixed starting point for reproducibility
+        face_start = face_candidates[no_improv_count] # better fixed starting point for reproducibility
         adj_faces, adj_faces_weights = find_adjacent_faces(faces[mb_idx], mb[:, :3], face_start, max_sampled_points, solver=solver)
         cur_part_verts, cur_part_labels, cur_part_faces, cur_part_normals, cur_part_gts, cur_part_vert_weights = get_partition_from_face_list(
                 mb=mb,
