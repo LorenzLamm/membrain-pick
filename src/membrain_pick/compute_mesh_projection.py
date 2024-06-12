@@ -158,7 +158,7 @@ def convert_seg_to_evenly_spaced_mesh(seg, smoothing=2000, barycentric_area=10, 
     mesh = mesh.decimate(0.5)
     
     pixel_factor = input_pixel_size / output_pixel_size
-    mesh.points = mesh.points * pixel_factor
+    mesh.points = mesh.points * pixel_factor * 2
 
     cluster_points = int(mesh.area / barycentric_area)
     clus = pyacvd.Clustering(mesh)

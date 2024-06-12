@@ -41,7 +41,8 @@ dependencies = [
     "scikit-learn",
     "potpourri3d",
     "robust-laplacian",
-    "lxml"
+    "lxml",
+    "starfile"
 ]
 
 

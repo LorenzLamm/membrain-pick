@@ -127,9 +127,12 @@ class MeanShiftForwarder():
         # Apply DBSCAN to group centers
         clustering = DBSCAN(eps=eps, min_samples=5).fit(centers)
         unique_labels = set(clustering.labels_)
+
         
         new_centers = []
         for label in unique_labels:
+            if label == -1:
+                continue
             # Find all points belonging to the same cluster
             indices = np.where(clustering.labels_ == label)[0]
             cluster_points = centers[indices]
@@ -145,6 +148,5 @@ class MeanShiftForwarder():
         coords = x.clone()
         seeds = x
         mean, p_num, mean_weights = self.mean_shift_for_seeds(coords.squeeze(), weights.squeeze(), seeds.squeeze())
-        mean = self.clean_cluster_centers_dbscan(mean.cpu().numpy(), eps=0.3 * self.bandwidth)
-        print("Number of clusters (after cleanup):", len(mean))
+        mean = self.clean_cluster_centers_dbscan(mean.cpu().numpy(), eps=0.4 * self.bandwidth)
         return mean, p_num, mean_weights

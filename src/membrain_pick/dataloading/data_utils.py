@@ -2,7 +2,7 @@ import lxml.etree as ET
 import pandas as pd
 import numpy as np
 import vtk
-
+import starfile
 
 def get_csv_data(csv_path, delimiter=",", with_header=False, return_header=False):
     # Read the CSV file into a DataFrame
@@ -18,12 +18,24 @@ def get_csv_data(csv_path, delimiter=",", with_header=False, return_header=False
     return df.values
 
 
-def store_array_in_csv(out_file, data, out_del=","):
+def store_array_in_csv(out_file, data, out_del=",", header=False):
     # Convert the numpy array to a DataFrame
     df = pd.DataFrame(data)
     
     # Store the DataFrame in a CSV file
-    df.to_csv(out_file, index=False, header=False, sep=out_del)
+    df.to_csv(out_file, index=False, header=header, sep=out_del)
+
+
+def store_array_in_star(out_file, data, header=None):
+    header = header if header is not None else ["rlnCoordinateX", "rlnCoordinateY", "rlnCoordinateZ"]
+    df = pd.DataFrame(data, columns=header)
+    starfile.write(df, out_file)
+
+
+def store_array_in_npy(out_file, data):
+    # Save the numpy array in an npy file
+    np.save(out_file, data)
+
 
 
 def store_point_and_vectors_in_vtp(

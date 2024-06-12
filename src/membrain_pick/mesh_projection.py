@@ -3,6 +3,7 @@ from time import time
 
 import os
 import numpy as np
+from scipy.ndimage import zoom
 
 from membrain_seg.segmentation.dataloading.data_utils import load_tomogram, store_tomogram
 from membrain_seg.tomo_preprocessing.pixel_size_matching.match_pixel_size import match_pixel_size
@@ -32,6 +33,7 @@ def match_tomo_pixel_size(tomo_file, tomo_file_out, pixel_size_out=14.08, pixel_
             pixel_size_in=pixel_size_in,
             disable_smooth=False
         )
+
 
 def meshes_for_folder_structure(mb_folder: str, 
                                 tomo_folder, 
@@ -281,8 +283,12 @@ def convert_to_mesh(mb_file,
                     min_connected_size=1e4):
     
     
+    print(f"Processing {mb_file}")
     mb_key = os.path.basename(mb_file).split(".")[0]
     seg = load_tomogram(mb_file).data
+
+    # downsample seg
+    seg = zoom(seg, (0.5, 0.5, 0.5), order=0) 
 
     seg = get_connected_components(seg, only_largest=only_largest_component)
 
@@ -340,7 +346,7 @@ def convert_to_mesh(mb_file,
 
             store_point_and_vectors_in_vtp(out_file_normals_vtp, mesh.points, mesh.point_normals, in_scalars=[normal_values[:, k] for k in range(normal_values.shape[1])])
 
-        mesh = Mesh(vertices=points, triangle_combos=faces+1)
+        mesh = Mesh(vertices=points * output_pixel_size / input_pixel_size, triangle_combos=faces+1)
         mesh.store_in_file(out_file.replace(".csv", ".obj"))
         if crop_box_flag:
             store_tomogram(out_file.replace(".csv", ".mrc"), cur_tomo)
