@@ -174,12 +174,98 @@ class MiniMLP(nn.Sequential):
                 )
 
 
+# class SeparableDiffusionNetBlock(nn.Module):
+#     """
+#     Inputs and outputs are defined at vertices
+#     """
+
+#     def __init__(self, C_in, C_width, conv_hidden_dims,
+#                  dropout=True, 
+#                  diffusion_method='spectral',
+#                  with_gradient_features=True, 
+#                  with_gradient_rotations=True,
+#                  fixed_time=None,
+#                  ):
+#         super(SeparableDiffusionNetBlock, self).__init__()
+
+#         # Specified dimensions
+#         self.C_width = C_width
+#         self.C_in = C_in
+#         self.conv_hidden_dims = conv_hidden_dims
+
+#         self.dropout = dropout
+#         self.with_gradient_features = with_gradient_features
+#         self.with_gradient_rotations = with_gradient_rotations
+
+#         # Diffusion block
+#         self.diffusion = LearnedTimeDiffusion(self.C_in, method=diffusion_method, fixed_time=fixed_time, shared_time=True)
+
+#         self.Conv_C_in = (3 if self.with_gradient_features else 2)
+#         self.Conv_C_width = self.C_width
+
+#         if self.with_gradient_features:
+#             self.gradient_features = SpatialGradientFeatures(self.C_in, with_gradient_rotations=self.with_gradient_rotations)
+
+#         # Convolutional layers
+#         self.conv_layer1 = nn.Conv1d(self.Conv_C_in, self.Conv_C_width, kernel_size=3, padding=1)
+#         self.conv_layer2 = nn.Conv1d(self.Conv_C_width, 1, kernel_size=3, padding=1)
+
+
+#     def forward(self, x_in, mass, L, evals, evecs, gradX, gradY):
+#         # Manage dimensions
+#         B = x_in.shape[0]
+
+#         # Diffusion block
+#         x_diffuse = self.diffusion(x_in, L, mass, evals, evecs)
+#         # Compute gradient features, if using
+#         if self.with_gradient_features:
+                
+#                 # Compute gradients
+#                 x_grads = [] # Manually loop over the batch (if there is a batch dimension) since torch.mm() doesn't support batching
+#                 for b in range(B):
+#                     # gradient after diffusion
+#                     x_gradX = torch.mm(gradX[b,...], x_diffuse[b,...])
+#                     x_gradY = torch.mm(gradY[b,...], x_diffuse[b,...])
+
+#                     x_grads.append(torch.stack((x_gradX, x_gradY), dim=-1))
+#                 x_grad = torch.stack(x_grads, dim=0)
+
+#                 # Evaluate gradient features
+#                 x_grad_features = self.gradient_features(x_grad)
+
+#                 # Stack inputs to mlp
+#                 feature_combined = torch.stack((x_in, x_diffuse, x_grad_features), dim=-1)
+
+#         else:
+#             # Stack inputs to mlp
+            
+#             feature_combined = torch.stack((x_in, x_diffuse), dim=-1)
+        
+#         feature_combined = feature_combined.reshape(-1, self.C_in, self.Conv_C_in)
+#         feature_combined = feature_combined.permute(0, 2, 1)
+        
+
+
+#         # Apply the conv layers
+#         x0_out = self.conv_layer1(feature_combined)
+#         x0_out = F.relu(x0_out)
+
+#         x0_out = F.max_pool1d(x0_out, kernel_size=3, stride=1, padding=1)
+#         x0_out = self.conv_layer2(x0_out)
+#         x0_out = F.relu(x0_out)
+#         x0_out = F.max_pool1d(x0_out, kernel_size=3, stride=1, padding=1)
+#         x_out = x0_out.reshape(1, x_in.shape[1], -1)
+#         return x_out
+    
+
 class SeparableDiffusionNetBlock(nn.Module):
     """
     Inputs and outputs are defined at vertices
     """
 
-    def __init__(self, C_in, C_width, conv_hidden_dims,
+    def __init__(self, C_in, C_width, 
+                 C_in_channels,
+                 conv_hidden_dims,
                  dropout=True, 
                  diffusion_method='spectral',
                  with_gradient_features=True, 
@@ -188,6 +274,19 @@ class SeparableDiffusionNetBlock(nn.Module):
                  ):
         super(SeparableDiffusionNetBlock, self).__init__()
 
+        self.diffusion_layer = DiffusionNetBlock(
+            C_width=C_in_channels,
+            mlp_hidden_dims=conv_hidden_dims,
+            dropout=dropout,
+            diffusion_method=diffusion_method,
+            with_gradient_features=with_gradient_features,
+            with_gradient_rotations=with_gradient_rotations,
+            fixed_time=fixed_time,
+            visualize_diffusion=False,
+            visualize_grad_rotations=False,
+            visualize_grad_features=False,
+            separate_channels=True
+        )        
         # Specified dimensions
         self.C_width = C_width
         self.C_in = C_in
@@ -197,15 +296,8 @@ class SeparableDiffusionNetBlock(nn.Module):
         self.with_gradient_features = with_gradient_features
         self.with_gradient_rotations = with_gradient_rotations
 
-        # Diffusion block
-        self.diffusion = LearnedTimeDiffusion(self.C_in, method=diffusion_method, fixed_time=fixed_time, shared_time=True)
-
-        self.Conv_C_in = (3 if self.with_gradient_features else 2)
+        self.Conv_C_in = 1
         self.Conv_C_width = self.C_width
-
-
-        if self.with_gradient_features:
-            self.gradient_features = SpatialGradientFeatures(self.C_in, with_gradient_rotations=self.with_gradient_rotations)
 
         # Convolutional layers
         self.conv_layer1 = nn.Conv1d(self.Conv_C_in, self.Conv_C_width, kernel_size=3, padding=1)
@@ -213,50 +305,24 @@ class SeparableDiffusionNetBlock(nn.Module):
 
 
     def forward(self, x_in, mass, L, evals, evecs, gradX, gradY):
-        # Manage dimensions
-        B = x_in.shape[0]
+        x = self.diffusion_layer(x_in, mass, L, evals, evecs, gradX, gradY) # shape (1, 2000, 10)
 
-        # Diffusion block
-        x_diffuse = self.diffusion(x_in, L, mass, evals, evecs)
-        # Compute gradient features, if using
-        if self.with_gradient_features:
-                
-                # Compute gradients
-                x_grads = [] # Manually loop over the batch (if there is a batch dimension) since torch.mm() doesn't support batching
-                for b in range(B):
-                    # gradient after diffusion
-                    x_gradX = torch.mm(gradX[b,...], x_diffuse[b,...])
-                    x_gradY = torch.mm(gradY[b,...], x_diffuse[b,...])
+        x = x.permute(1, 0, 2)
 
-                    x_grads.append(torch.stack((x_gradX, x_gradY), dim=-1))
-                x_grad = torch.stack(x_grads, dim=0)
+        x = self.conv_layer1(x)
+        x = F.relu(x)
+        x = F.max_pool1d(x, kernel_size=3, stride=1, padding=1)
+        x = self.conv_layer2(x)
+        x = F.relu(x)
+        x = F.max_pool1d(x, kernel_size=3, stride=1, padding=1)
 
-                # Evaluate gradient features
-                x_grad_features = self.gradient_features(x_grad)
+        x_out = x.permute(1, 0, 2)
 
-                # Stack inputs to mlp
-                feature_combined = torch.stack((x_in, x_diffuse, x_grad_features), dim=-1)
-
-        else:
-            # Stack inputs to mlp
-            
-            feature_combined = torch.stack((x_in, x_diffuse), dim=-1)
-        
-        feature_combined = feature_combined.reshape(-1, self.C_in, self.Conv_C_in)
-        feature_combined = feature_combined.permute(0, 2, 1)
-        
-
-
-        # Apply the conv layers
-        x0_out = self.conv_layer1(feature_combined)
-        x0_out = F.relu(x0_out)
-
-        x0_out = F.max_pool1d(x0_out, kernel_size=3, stride=1, padding=1)
-        x0_out = self.conv_layer2(x0_out)
-        x0_out = F.relu(x0_out)
-        x0_out = F.max_pool1d(x0_out, kernel_size=3, stride=1, padding=1)
-        x_out = x0_out.reshape(1, x_in.shape[1], -1)
+        # Skip connection
+        x_out = x_out + x_in
         return x_out
+    
+
         
 
 
@@ -277,6 +343,7 @@ class DiffusionNetBlock(nn.Module):
                  visualize_diffusion=False,
                  visualize_grad_rotations=False,
                  visualize_grad_features=False,
+                 separate_channels=False,
                  ):
         super(DiffusionNetBlock, self).__init__()
 
@@ -291,6 +358,8 @@ class DiffusionNetBlock(nn.Module):
         self.visualize_diffusion = visualize_diffusion
         self.visualize_grad_rotations = visualize_grad_rotations
         self.visualize_grad_features = visualize_grad_features
+
+        self.separate_channels = separate_channels
 
         # Diffusion block
         self.diffusion = LearnedTimeDiffusion(self.C_width, 
@@ -307,7 +376,13 @@ class DiffusionNetBlock(nn.Module):
             self.MLP_C += self.C_width
         
         # MLPs
-        self.mlp = MiniMLP([self.MLP_C] + self.mlp_hidden_dims + [self.C_width], dropout=self.dropout)
+        if self.separate_channels:
+            self.MLP_C = (3 if self.with_gradient_features else 2)
+            self.MLP_OUT = 1
+        else:
+            self.MLP_OUT = self.C_width 
+        
+        self.mlp = MiniMLP([self.MLP_C] + self.mlp_hidden_dims + [self.MLP_OUT], dropout=self.dropout)
 
 
     def forward(self, x_in, mass, L, evals, evecs, gradX, gradY):
@@ -371,11 +446,17 @@ class DiffusionNetBlock(nn.Module):
             else:
                 feature_combined = torch.cat((x_in, x_diffuse), dim=-1)
 
+        if self.separate_channels:
+            feature_combined = feature_combined.reshape(1, -1, (3 if self.with_gradient_features else 2))
+
         # Apply the mlp
         x0_out = self.mlp(feature_combined)
 
+        if self.separate_channels:
+            x0_out = x0_out.reshape(1, -1, self.C_width)
+
         # Skip connection
-        # x0_out = x0_out + x_in
+        x0_out = x0_out + x_in
 
         return x0_out
 
@@ -458,7 +539,8 @@ class DiffusionNet(nn.Module):
         if one_D_conv_first:
             self.conv_block_out_dim = C_width * (C_in // 4)
             self.conv_block = SeparableDiffusionNetBlock(C_in=self.C_in,
-                                    C_width = 8,
+                                    C_width = 32,
+                                    C_in_channels = C_in,
                                       conv_hidden_dims = mlp_hidden_dims,
                                       dropout = dropout,
                                       diffusion_method = diffusion_method,
@@ -466,7 +548,8 @@ class DiffusionNet(nn.Module):
                                       with_gradient_rotations = with_gradient_rotations,
                                       fixed_time=fixed_time,)
             self.conv_block2 = SeparableDiffusionNetBlock(C_in=self.C_in,
-                                    C_width = 8,
+                                    C_width = 32,
+                                    C_in_channels = C_in,
                                       conv_hidden_dims = mlp_hidden_dims,
                                       dropout = dropout,
                                       diffusion_method = diffusion_method,
@@ -575,7 +658,7 @@ class DiffusionNet(nn.Module):
         # Apply the first linear layer
         if self.one_D_conv_first:
             x = self.conv_block(x_in, mass, L, evals, evecs, gradX, gradY)
-            x = self.conv_block2(x, mass, L, evals, evecs, gradX, gradY)
+            # x = self.conv_block2(x, mass, L, evals, evecs, gradX, gradY)
             x = self.first_lin(x)
         else:
             x = self.first_lin(x_in)
