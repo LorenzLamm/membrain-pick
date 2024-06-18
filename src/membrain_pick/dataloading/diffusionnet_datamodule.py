@@ -62,8 +62,8 @@ class MemSegDiffusionNetDataModule(pl.LightningDataModule):
         cache_dir: Optional[str] = None,
         augment_all: bool = True,
         aug_prob_to_one: bool = False,
-        pixel_size: float = 1.0,
-        max_tomo_shape: int = 928,
+        input_pixel_size: float = 10.0,
+        process_pixel_size: float = 15.0,
         k_eig: int = 128,
         batch_size: int = 1,
         num_workers: int = 16,
@@ -81,8 +81,8 @@ class MemSegDiffusionNetDataModule(pl.LightningDataModule):
         self.overfit_mb = overfit_mb
         self.cache_dir = cache_dir
         self.augment_all = augment_all
-        self.pixel_size = pixel_size
-        self.max_tomo_shape = max_tomo_shape
+        self.input_pixel_size = input_pixel_size
+        self.process_pixel_size = process_pixel_size
         self.allpos = allpos
         self.use_psii = use_psii
         self.use_b6f = use_b6f
@@ -104,18 +104,18 @@ class MemSegDiffusionNetDataModule(pl.LightningDataModule):
         if stage == 'fit' or stage is None:
             if self.train_dataset is None:
                 self.train_dataset = MemSegDiffusionNetDataset(
-                    csv_folder=self.csv_folder_train,
+                    data_folder=self.csv_folder_train,
                     train=True,
                     train_pct=1.0,
                     load_only_sampled_points=self.load_n_sampled_points,
-                    max_tomo_shape=self.max_tomo_shape,
                     overfit=self.overfit,
                     force_recompute=self.force_recompute,
                     overfit_mb=self.overfit_mb,
                     cache_dir=self.cache_dir,
                     augment_all=self.augment_all,
                     aug_prob_to_one=self.aug_prob_to_one,
-                    pixel_size=self.pixel_size,
+                    input_pixel_size=self.input_pixel_size,
+                    process_pixel_size=self.process_pixel_size,
                     k_eig=self.k_eig,
                     allpos=self.allpos,
                     use_psii=self.use_psii,
@@ -124,17 +124,17 @@ class MemSegDiffusionNetDataModule(pl.LightningDataModule):
                 )
             if self.val_dataset is None:
                 self.val_dataset = MemSegDiffusionNetDataset(
-                    csv_folder=self.csv_folder_val,
+                    data_folder=self.csv_folder_val,
                     train=False,
                     train_pct=0.0,
                     load_only_sampled_points=self.load_n_sampled_points,
-                    max_tomo_shape=self.max_tomo_shape,
                     overfit=self.overfit,
                     force_recompute=self.force_recompute,
                     overfit_mb=self.overfit_mb,
                     cache_dir=self.cache_dir,
                     augment_all=self.augment_all,
-                    pixel_size=self.pixel_size,
+                    input_pixel_size=self.input_pixel_size,
+                    process_pixel_size=self.process_pixel_size,
                     k_eig=self.k_eig,
                     allpos=self.allpos,
                     use_psii=self.use_psii,
@@ -145,24 +145,23 @@ class MemSegDiffusionNetDataModule(pl.LightningDataModule):
         elif stage == 'test' or stage is None:
             if self.test_dataset is None:
                 self.test_dataset = MemSegDiffusionNetDataset(
-                    csv_folder=self.csv_folder_test,
+                    data_folder=self.csv_folder_test,
                     train=False,
                     train_pct=0.0,
                     is_single_mb=self.is_single_mb,
                     load_only_sampled_points=self.load_n_sampled_points,
-                    max_tomo_shape=self.max_tomo_shape,
                     overfit=self.overfit,
                     force_recompute=self.force_recompute,
                     overfit_mb=self.overfit_mb,
                     cache_dir=self.cache_dir,
                     augment_all=self.augment_all,
-                    pixel_size=self.pixel_size,
+                    input_pixel_size=self.input_pixel_size,
+                    process_pixel_size=self.process_pixel_size,
                     k_eig=self.k_eig,
                     allpos=self.allpos,
                     use_psii=self.use_psii,
                     use_b6f=self.use_b6f,
                     use_uk=self.use_uk,
-                    # test_mb="T1S1M18"
                 )
 
 
