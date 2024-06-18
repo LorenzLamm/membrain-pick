@@ -3,6 +3,31 @@ import pandas as pd
 import numpy as np
 import vtk
 import starfile
+import h5py
+import torch
+
+
+def convert_to_torch(data_dict: dict) -> dict:
+    """
+    Converts all numpy arrays in a dictionary to torch tensors.
+
+    Parameters
+    ----------
+    data_dict : dict
+        A dictionary containing numpy arrays.
+
+    Returns
+    -------
+    dict
+        A dictionary containing torch tensors.
+    """
+    out_dict = {}
+    for key in data_dict:
+        if isinstance(data_dict[key], np.ndarray):
+            out_dict[key] = torch.from_numpy(data_dict[key]).float()
+        else:
+            out_dict[key] = data_dict[key]
+    return out_dict
 
 def get_csv_data(csv_path, delimiter=",", with_header=False, return_header=False):
     # Read the CSV file into a DataFrame
@@ -31,11 +56,68 @@ def store_array_in_star(out_file, data, header=None):
     df = pd.DataFrame(data, columns=header)
     starfile.write(df, out_file)
 
+def read_star_file(star_file):
+    return starfile.read(star_file)
+
 
 def store_array_in_npy(out_file, data):
     # Save the numpy array in an npy file
     np.save(out_file, data)
 
+
+def store_mesh_in_hdf5(out_file: str,
+                          points: np.ndarray,
+                            faces: np.ndarray,
+                            **kwargs):
+    """
+    Store mesh data in an HDF5 file.
+
+    The points and vertices will be stored in separate hdf5 datasets.
+    Each kwargs key will be stored as a separate dataset.
+
+    Parameters
+    ----------
+    out_file : str
+        The path to the output HDF5 file.
+    points : np.ndarray
+        The points data.
+    faces : np.ndarray
+        The faces data.
+    kwargs : dict
+        Additional data to store in the HDF5 file.
+
+    Returns
+    -------
+    None
+        This function does not return a value.
+    """
+
+    with h5py.File(out_file, "w") as f:
+        f.create_dataset("points", data=points)
+        f.create_dataset("faces", data=faces)
+        for key, value in kwargs.items():
+            f.create_dataset(key, data=value)
+
+
+def load_mesh_from_hdf5(in_file: str):
+    """
+    Load mesh data from an HDF5 file.
+
+    Parameters
+    ----------
+    in_file : str
+        The path to the input HDF5 file.
+
+    Returns
+    -------
+    dict
+        A dictionary containing the mesh data.
+    """
+    mesh_data = {}
+    with h5py.File(in_file, "r") as f:
+        for key in f.keys():
+            mesh_data[key] = f[key][()]
+    return mesh_data
 
 
 def store_point_and_vectors_in_vtp(
@@ -65,7 +147,6 @@ def store_point_and_vectors_in_vtp(
     in_scalars : np.ndarray, optional
         A Numpy array of scalars associated with each point. Shape should be (n_points,).
         If not provided, only point and optional vector data are written to the VTP file.
-
 
     Returns
     -------
