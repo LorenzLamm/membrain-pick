@@ -26,8 +26,8 @@ def train(
     force_recompute_partitioning: bool = False,
     augment_all: bool = True,
     aug_prob_to_one: bool = False,
-    pixel_size: float = 1.0,
-    max_tomo_shape: int = 928,
+    input_pixel_size: float = 10.0,
+    process_pixel_size: float = 15.0,
     k_eig: int = 128,
 
     # Model parameters
@@ -66,8 +66,8 @@ def train(
         cache_dir=cache_dir_mb,
         augment_all=augment_all,
         aug_prob_to_one=aug_prob_to_one,
-        pixel_size=pixel_size,
-        max_tomo_shape=max_tomo_shape,
+        input_pixel_size=input_pixel_size,
+        process_pixel_size=process_pixel_size,
         allpos=allpos,
         use_psii=use_psii,
         use_b6f=use_b6f,
@@ -79,9 +79,15 @@ def train(
 
     )
     data_module.setup()
-    # data_module.train_dataset.test_loading(out_dir="./test_loading/", idx=0, times=5)
-    # data_module.train_dataset.test_loading(out_dir="./test_loading/", idx=1, times=5)
-    # data_module.train_dataset.test_loading(out_dir="./test_loading/", idx=2, times=5)
+    # data_module.train_dataset.test_loading(out_dir="./test_loading/", idx=0, times=10)
+    # data_module.train_dataset.test_loading(out_dir="./test_loading/", idx=1, times=10)
+    # data_module.train_dataset.test_loading(out_dir="./test_loading/", idx=2, times=10)
+    # data_module.train_dataset.test_loading(out_dir="./test_loading/", idx=3, times=10)
+    # data_module.train_dataset.test_loading(out_dir="./test_loading/", idx=4, times=10)
+    # data_module.train_dataset.test_loading(out_dir="./test_loading/", idx=5, times=10)
+    # data_module.train_dataset.test_loading(out_dir="./test_loading/", idx=15, times=10)
+    # data_module.train_dataset.test_loading(out_dir="./test_loading/", idx=25, times=10)
+    # data_module.train_dataset.test_loading(out_dir="./test_loading/", idx=50, times=10)
     # exit()
 
     model = DiffusionNetModule(
