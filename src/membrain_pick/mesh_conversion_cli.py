@@ -51,7 +51,7 @@ from typing import List
 
 from typer import Option
 
-from membrain_pick.mesh_projection import (
+from membrain_pick.mesh_conversion_wrappers import (
     mesh_for_single_mb_file,
     mesh_for_tomo_mb_folder,
     meshes_for_folder_structure
@@ -74,9 +74,6 @@ def convert_single_file(
     only_obj: bool = Option(  # noqa: B008
         False, help="Should only .obj files be computed? --> compatible with Surforama"
     ),
-    match_size_flag: bool = Option(  # noqa: B008
-        False, help="Should tomograms and membranes be converted to a specific pixel size?"
-    ),
     input_pixel_size: float = Option(  # noqa: B008
         None,
         help="Pixel size of the input tomogram. Only used if match_size_flag is True. If not provided, the pixel size will be read from the tomogram.",
@@ -85,22 +82,18 @@ def convert_single_file(
         None,
         help="Pixel size of the output tomogram. Only used if match_size_flag is True.",
     ),
-    temp_folder: str = Option(  # noqa: B008
-        "./temp_mesh_data",
-        help="Path to the folder where temporary data should be stored.",
-    ),
     step_numbers: List[int] = Option(  # noqa: B008
         (-6, 7),
         help="Step numbers for the normal vectors. Default: (-6, 7)",
     ),
     step_size: float = Option(  # noqa: B008
-        0.25, help="Step size for the normal vectors. Default: 0.25"
+        2.5, help="Step size for the normal vectors. Default: 2.5"
     ),
     mesh_smoothing: int = Option(  # noqa: B008
         1000, help="Smoothing factor for the mesh. Default: 1000"
     ),
     barycentric_area: float = Option(  # noqa: B008
-        1.0, help="Barycentric area for the mesh. Default: 1.0"
+        50.0, help="Barycentric area for the mesh. Default: 1.0"
     ),
     crop_box_flag: bool = Option(  # noqa: B008
         False, help="Should the mesh be cropped to the bounding box of the segmentation?"
@@ -126,8 +119,6 @@ def convert_single_file(
         out_folder=out_folder,
         tomo=None,
         only_obj=only_obj,
-        match_size_flag=match_size_flag,
-        temp_folder=temp_folder,
         step_numbers=step_numbers,
         step_size=step_size,
         mesh_smoothing=mesh_smoothing,
@@ -154,9 +145,6 @@ def convert_mb_folder(
     only_obj: bool = Option(  # noqa: B008
         False, help="Should only .obj files be computed? --> compatible with Surforama"
     ),
-    match_size_flag: bool = Option(  # noqa: B008
-        False, help="Should tomograms and membranes be converted to a specific pixel size?"
-    ),
     input_pixel_size: float = Option(  # noqa: B008
         None,
         help="Pixel size of the input tomogram. Only used if match_size_flag is True. If not provided, the pixel size will be read from the tomogram.",
@@ -165,22 +153,18 @@ def convert_mb_folder(
         None,
         help="Pixel size of the output tomogram. Only used if match_size_flag is True.",
     ),
-    temp_folder: str = Option(  # noqa: B008
-        "./temp_mesh_data",
-        help="Path to the folder where temporary data should be stored.",
-    ),
     step_numbers: List[int] = Option(  # noqa: B008
         (-6, 7),
         help="Step numbers for the normal vectors. Default: (-6, 7)",
     ),
     step_size: float = Option(  # noqa: B008
-        0.25, help="Step size for the normal vectors. Default: 0.25"
+        2.5, help="Step size for the normal vectors. Default: 2.5"
     ),
     mesh_smoothing: int = Option(  # noqa: B008
         1000, help="Smoothing factor for the mesh. Default: 1000"
     ),
     barycentric_area: float = Option(  # noqa: B008
-        1.0, help="Barycentric area for the mesh. Default: 1.0"
+        50.0, help="Barycentric area for the mesh. Default: 1.0"
     ),
     crop_box_flag: bool = Option(  # noqa: B008
         False, help="Should the mesh be cropped to the bounding box of the segmentation?"
@@ -204,8 +188,6 @@ def convert_mb_folder(
         tomo_file=tomo_path,
         out_folder=out_folder,
         only_obj=only_obj,
-        match_size_flag=match_size_flag,
-        temp_folder=temp_folder,
         step_numbers=step_numbers,
         step_size=step_size,
         mesh_smoothing=mesh_smoothing,
@@ -231,9 +213,6 @@ def convert_folder_structure(
     only_obj: bool = Option(  # noqa: B008
         False, help="Should only .obj files be computed? --> compatible with Surforama"
     ),
-    match_size_flag: bool = Option(  # noqa: B008
-        False, help="Should tomograms and membranes be converted to a specific pixel size?"
-    ),
     input_pixel_size: float = Option(  # noqa: B008
         None,
         help="Pixel size of the input tomogram. Only used if match_size_flag is True. If not provided, the pixel size will be read from the tomogram.",
@@ -242,22 +221,18 @@ def convert_folder_structure(
         None,
         help="Pixel size of the output tomogram. Only used if match_size_flag is True.",
     ),
-    temp_folder: str = Option(  # noqa: B008
-        "./temp_mesh_data",
-        help="Path to the folder where temporary data should be stored.",
-    ),
     step_numbers: List[int] = Option(  # noqa: B008
         (-6, 7),
         help="Step numbers for the normal vectors. Default: (-6, 7)",
     ),
     step_size: float = Option(  # noqa: B008
-        0.25, help="Step size for the normal vectors. Default: 0.25"
+        2.5, help="Step size for the normal vectors. Default: 2.5"
     ),
     mesh_smoothing: int = Option(  # noqa: B008
         1000, help="Smoothing factor for the mesh. Default: 1000"
     ),
     barycentric_area: float = Option(  # noqa: B008
-        1.0, help="Barycentric area for the mesh. Default: 1.0"
+        50.0, help="Barycentric area for the mesh. Default: 1.0"
     ),
     crop_box_flag: bool = Option(  # noqa: B
         False, help="Should the mesh be cropped to the bounding box of the segmentation?"
@@ -281,8 +256,6 @@ def convert_folder_structure(
         tomo_folder=tomo_folder,
         out_folder=out_folder,
         only_obj=only_obj,
-        match_size_flag=match_size_flag,
-        temp_folder=temp_folder,
         step_numbers=step_numbers,
         step_size=step_size,
         mesh_smoothing=mesh_smoothing,
@@ -328,11 +301,11 @@ def train(
     aug_prob_to_one: bool = Option(  # noqa: B008
         False, help="Should the probability be set to one?"
     ),
-    pixel_size: float = Option(  # noqa: B008
-        1.0, help="Pixel size of the tomogram."
+    input_pixel_size: float = Option(  # noqa: B008
+        10.0, help="Pixel size of the tomogram."
     ),
-    max_tomo_shape: int = Option(  # noqa: B008
-        928, help="Maximum shape of the tomogram."
+    process_pixel_size: float = Option(  # noqa: B008
+        15.0, help="Pixel size of the processed tomogram."
     ),
     k_eig: int = Option(  # noqa: B008
         128, help="Number of eigenvectors."
@@ -404,8 +377,8 @@ def train(
         force_recompute_partitioning=force_recompute_partitioning,
         augment_all=augment_all,
         aug_prob_to_one=aug_prob_to_one,
-        pixel_size=pixel_size,
-        max_tomo_shape=max_tomo_shape,
+        input_pixel_size=input_pixel_size,
+        process_pixel_size=process_pixel_size,
         k_eig=k_eig,
         allpos=allpos,
         use_psii=use_psii,
@@ -447,8 +420,11 @@ def predict(
     partition_size: int = Option(  # noqa: B008
         2000, help="Size of the partition."
     ),
-    pixel_size: float = Option(  # noqa: B008
-        1.0, help="Pixel size of the tomogram."
+    input_pixel_size: float = Option(  # noqa: B008
+        10.0, help="Pixel size of the tomogram."
+    ),
+    process_pixel_size: float = Option(  # noqa: B008
+        15.0, help="Pixel size of the tomogram."
     ),
     max_tomo_shape: int = Option(  # noqa: B008
         928, help="Maximum shape of the tomogram."
@@ -487,7 +463,8 @@ def predict(
         out_dir=out_dir,
         is_single_mb=is_single_mb,
         partition_size=partition_size,
-        pixel_size=pixel_size,
+        input_pixel_size=input_pixel_size,
+        process_pixel_size=process_pixel_size,
         max_tomo_shape=max_tomo_shape,
         k_eig=k_eig,
         mean_shift_output=mean_shift_output,
