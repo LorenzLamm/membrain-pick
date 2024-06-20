@@ -86,7 +86,8 @@ def get_cur_mb_key(mb_key, only_largest_component, k, sub_seg_count, seg):
 
 def save_mesh_data(
     out_file_base: str, mesh: Mesh, points: np.ndarray, faces: np.ndarray,
-    point_normals: np.ndarray, normal_values: np.ndarray, only_obj: bool
+    point_normals: np.ndarray, normal_values: np.ndarray, only_obj: bool, tomo_file: str = None,
+    pixel_size: float = None
 ) -> None:
     """
     Save the mesh data to files.
@@ -107,6 +108,8 @@ def save_mesh_data(
         Normal values data.
     only_obj : bool
         Flag to store only the .obj file.
+    tomo_file : str, optional
+        Path to the tomogram file.
 
     Returns
     -------
@@ -128,6 +131,8 @@ def save_mesh_data(
             faces=faces,
             normals=point_normals,
             normal_values=normal_values,
+            tomo_file=tomo_file,
+            pixel_size=pixel_size
         )
         store_point_and_vectors_in_vtp(
             out_file_normals_vtp, points, point_normals,
@@ -229,7 +234,17 @@ def convert_to_mesh(
                                                         verts=points,
                                                         normals=point_normals)
 
-        out_file = save_mesh_data(os.path.join(out_folder, token + "_" + cur_mb_key), mesh, points, faces, point_normals, normal_values, only_obj)
+        out_file = save_mesh_data(
+            out_file_base=os.path.join(out_folder, token + "_" + cur_mb_key),
+             mesh=mesh, 
+             points=points, 
+             faces=faces, 
+             point_normals=point_normals, 
+             normal_values=normal_values, 
+             only_obj=only_obj,
+             tomo_file=tomo_file,
+             pixel_size=1. # points dimension corresponds already to tomogram dimensions
+             )
 
         if crop_box_flag:
             store_tomogram(out_file.replace(".csv", ".mrc"), cur_tomo)
