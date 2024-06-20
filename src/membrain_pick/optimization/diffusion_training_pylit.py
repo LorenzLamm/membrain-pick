@@ -87,6 +87,7 @@ class DiffusionNetModule(pl.LightningModule):
                 seeds=verts_orig
                 )
             out["ms"] = out_ms
+
             
         return out
 

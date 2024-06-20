@@ -71,6 +71,7 @@ repository = "https://github.com/teamtomo/membrain-seg"
 # spam-cli = "spam:main_cli"
 [project.scripts]
 membrain_pick = "membrain_pick.mesh_conversion_cli:cli"
+surfomembrain = "membrain_pick.surforama_cli:cli"
 
 # Entry points
 # https://peps.python.org/pep-0621/#entry-points

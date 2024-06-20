@@ -1,6 +1,7 @@
 import os 
 from tqdm import tqdm
 
+import h5py
 import torch
 import numpy as np
 import pytorch_lightning as pl
@@ -8,7 +9,7 @@ import pytorch_lightning as pl
 from membrain_pick.dataloading.diffusionnet_datamodule import MemSegDiffusionNetDataModule
 from membrain_pick.optimization.diffusion_training_pylit import DiffusionNetModule
 
-from membrain_pick.dataloading.data_utils import store_array_in_csv, store_array_in_npy, store_point_and_vectors_in_vtp
+from membrain_pick.dataloading.data_utils import store_array_in_csv, store_array_in_npy, store_point_and_vectors_in_vtp, store_mesh_in_hdf5
 from membrain_pick.mean_shift_inference import mean_shift_for_scores, store_clusters
 
 
@@ -21,6 +22,7 @@ def save_output(cur_mb_data, out_dir, mb_token):
     all_labels = np.concatenate(cur_mb_data["labels"], axis=0)
     all_features = np.concatenate(cur_mb_data["features"], axis=0)
     all_weights = np.concatenate(cur_mb_data["weights"], axis=0)
+    all_faces = np.concatenate(cur_mb_data["faces"], axis=0)
 
     # Find unique verts and their inverse indices
     unique_verts, inverse_indices = np.unique(all_verts, axis=0, return_inverse=True)
@@ -29,6 +31,11 @@ def save_output(cur_mb_data, out_dir, mb_token):
     unique_scores = np.zeros(unique_verts.shape[0])
     unique_features = np.zeros((unique_verts.shape[0], all_features.shape[1]))
     unique_labels = np.zeros(unique_verts.shape[0])
+
+    all_faces = np.array(all_faces, dtype=int)
+    new_faces = inverse_indices[all_faces]
+    new_faces = np.unique(new_faces, axis=0) 
+
 
     # Compute weighted average of scores, and select the first labels and features
     for i in range(unique_verts.shape[0]):
@@ -42,8 +49,35 @@ def save_output(cur_mb_data, out_dir, mb_token):
     store_array_in_npy(out_file_csv.replace(".csv", ".npy"), np.concatenate((unique_verts, np.expand_dims(unique_scores, axis=1)), axis=1))
     store_point_and_vectors_in_vtp(out_file_vtp, unique_verts, in_scalars=[unique_labels, unique_scores] + [unique_features[:, i] for i in range(0, unique_features.shape[1])])
 
-    return unique_verts, unique_scores, out_file_csv
+    return unique_verts, unique_scores, out_file_csv, unique_labels, new_faces
 
+def save_output_h5(unique_verts, new_faces, unique_scores, unique_labels, out_file_csv, cluster_centers=None, tomo_file="", pixel_size=10.):
+    out_file_h5 = out_file_csv.replace(".csv", ".h5")
+    store_mesh_in_hdf5(
+        out_file=out_file_h5,
+        points=unique_verts,
+        faces=new_faces,
+        scores=unique_scores,
+        labels=unique_labels,
+        cluster_centers=cluster_centers,
+        tomo_file=tomo_file,
+        pixel_size=pixel_size
+    )
+    # with h5py.File(out_file_h5, 'w') as h5file:
+    #     # Save unique vertices
+    #     h5file.create_dataset('verts', data=unique_verts)
+        
+    #     # Save unique scores
+    #     h5file.create_dataset('scores', data=unique_scores)
+        
+    #     # Save unique labels
+    #     h5file.create_dataset('labels', data=unique_labels)
+        
+    #     if cluster_centers is not None:
+    #         # Save cluster centers if provided
+    #         h5file.create_dataset('cluster_centers', data=cluster_centers)
+
+    #     h5file.create_dataset('tomo_file', data=np.string_(tomo_file))
 
 def predict(
         data_dir: str,
@@ -53,8 +87,9 @@ def predict(
 
         # Dataset parameters
         partition_size: int = 2000,
-        pixel_size: float = 1.0,
-        max_tomo_shape: int = 928,
+        input_pixel_size: float = 10.0,
+        process_pixel_size: float = 15.0,
+        max_tomo_shape: int = 1000,
         k_eig: int = 128,
 
         # Mean shift parameters
@@ -82,14 +117,15 @@ def predict(
         is_single_mb=is_single_mb,
         load_n_sampled_points=partition_size,
         cache_dir="./mb_cache", # always recompute partitioning
-        pixel_size=pixel_size,
-        max_tomo_shape=max_tomo_shape,
+        input_pixel_size=input_pixel_size,
+        process_pixel_size=process_pixel_size,
         k_eig=k_eig,
         batch_size=1,
         force_recompute=True,
         num_workers=0,
         pin_memory=False,
-        allpos=True
+        allpos=True,
+        overfit=False
     )
     data_module.setup(stage="test")
     test_loader = data_module.test_dataloader()
@@ -99,8 +135,9 @@ def predict(
                                                     map_location=device,
                                                     strict=False,
                                                     dropout=False,
-                                                    N_block=6,
-                                                    C_width=8,
+                                                    N_block=4,
+                                                    C_width=64,
+                                                    C_in=10,
                                                     one_D_conv_first=True
                                                     )
     model.to(device)
@@ -109,9 +146,12 @@ def predict(
     os.makedirs(out_dir, exist_ok=True)
 
     prev_mb_nr = 0
+    verts_count = 0
     prev_mb_token = ""
+    prev_tomo_file = ""
     cur_mb_data = {
         "verts": [],
+        "faces": [], 
         "scores": [],
         "labels": [],
         "features": [],
@@ -124,7 +164,13 @@ def predict(
         vert_weights = batch["vert_weights"]
         cur_mb_nr = batch["mb_idx"]
         mb_token = batch["mb_token"]
+        tomo_file = batch["tomo_file"]
         labels = batch["label"]
+        if cur_mb_nr != prev_mb_nr:
+            verts_count = 0
+        faces = batch["faces"] + verts_count
+        verts_count += batch["verts_orig"].shape[0]
+
         def mse_loss(output, labels, weights):
             return ((output.cpu().detach()*weights - labels*weights) ** 2).mean()
         loss = mse_loss(output["mse"].squeeze(), labels, weights=vert_weights)
@@ -132,8 +178,8 @@ def predict(
         print("Span:", torch.min(output["mse"].squeeze()), torch.max(output["mse"].squeeze()))
 
         if cur_mb_nr != prev_mb_nr:
-            # if prev_mb_nr != 0: <<---------- I don't think this is necessary / causes issues
-            unique_verts, unique_scores, out_file_csv = save_output(cur_mb_data, out_dir, prev_mb_token)
+            unique_verts, unique_scores, out_file_csv, unique_labels, new_faces = save_output(cur_mb_data, out_dir, prev_mb_token)
+            clusters = None
             if mean_shift_output:
                 print("Performing mean shift...")
                 clusters, out_p_num = mean_shift_for_scores(positions=unique_verts, 
@@ -149,25 +195,30 @@ def predict(
                     out_pos=clusters,
                     out_p_num=out_p_num,
                 )
+            save_output_h5(unique_verts, new_faces, unique_scores, unique_labels, out_file_csv, cluster_centers=clusters, tomo_file=prev_tomo_file, pixel_size=input_pixel_size)
             cur_mb_data = {
                 "verts": [],
                 "scores": [],
                 "labels": [],
                 "features": [],
                 "weights": [],
+                "faces": []
             }
             prev_mb_nr = cur_mb_nr
+            prev_tomo_file = tomo_file
         
         prev_mb_token = mb_token
+        prev_tomo_file = tomo_file
         
         cur_mb_data["verts"].append(batch["verts_orig"].detach().cpu().numpy())
         cur_mb_data["scores"].append(output["mse"].squeeze().detach().cpu().numpy())
         cur_mb_data["labels"].append(batch["label"].detach().cpu().numpy())
         cur_mb_data["features"].append(batch["membrane"][:, 3:].detach().cpu().numpy())
         cur_mb_data["weights"].append(vert_weights.detach().cpu().numpy())
+        cur_mb_data["faces"].append(faces.detach().cpu().numpy())
 
-
-    unique_verts, unique_scores, out_file_csv = save_output(cur_mb_data, out_dir, mb_token)
+    unique_verts, unique_scores, out_file_csv, unique_labels, new_faces = save_output(cur_mb_data, out_dir, mb_token)
+    clusters = None
     if mean_shift_output:
         print("Performing mean shift...")
         clusters, out_p_num = mean_shift_for_scores(positions=unique_verts, 
@@ -183,6 +234,8 @@ def predict(
             out_pos=clusters,
             out_p_num=out_p_num,
         )
+    save_output_h5(unique_verts, new_faces, unique_scores, unique_labels, out_file_csv, cluster_centers=clusters, tomo_file=prev_tomo_file, pixel_size=input_pixel_size)
+    
 
 
 def main():
