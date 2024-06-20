@@ -120,6 +120,7 @@ def save_mesh_data(
     out_file_normals = f"{out_file_base}_mesh_normals.csv"
     out_file_normals_vtp = f"{out_file_base}_mesh_normals.vtp"
 
+
     if not only_obj:
         out_data = np.concatenate([points, normal_values], axis=1)
         store_array_in_csv(out_file, out_data)
@@ -131,7 +132,7 @@ def save_mesh_data(
             faces=faces,
             normals=point_normals,
             normal_values=normal_values,
-            tomo_file=tomo_file,
+            tomo_file=os.path.abspath(tomo_file),
             pixel_size=pixel_size
         )
         store_point_and_vectors_in_vtp(
