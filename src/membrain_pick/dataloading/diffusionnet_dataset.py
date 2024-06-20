@@ -152,6 +152,7 @@ class MemSegDiffusionNetDataset(Dataset):
                 "normals": self.part_normals[idx],
                 "mb_idx": self.part_mb_idx[idx],
                 "mb_token": os.path.basename(self.data_paths[self.part_mb_idx[idx]][0])[:-8],
+                "tomo_file": self.tomo_files[self.part_mb_idx[idx]],
                 "gt_pos": self.part_gt_pos[idx] * self.max_tomo_shape,
                 "vert_weights": self.part_vert_weights[idx]
             }
@@ -167,6 +168,7 @@ class MemSegDiffusionNetDataset(Dataset):
                 "normals": self.vert_normals[idx],
                 "mb_idx": idx,
                 "mb_token": os.path.basename(self.data_paths[idx][0])[:-8],
+                "tomo_file": self.tomo_files[idx],
                 "gt_pos": self.gt_pos[idx],
                 "vert_weights": np.ones(self.membranes[idx].shape[0])
             }
@@ -293,6 +295,8 @@ class MemSegDiffusionNetDataset(Dataset):
         self.faces = []
         self.vert_normals = []
         self.gt_pos = []
+        self.tomo_files = []
+
         for entry in self.data_paths:
             hdf5_path = entry[0]
             gt_path = entry[1]
@@ -303,6 +307,8 @@ class MemSegDiffusionNetDataset(Dataset):
             faces = mesh_data["faces"]
             vert_normals = mesh_data["normals"]
             normal_values = mesh_data["normal_values"]
+            tomo_file = "" if not "tomo_file" in mesh_data.keys() else mesh_data["tomo_file"]
+
             points = np.concatenate([points, normal_values], axis=1)
 
             if os.path.isfile(gt_path):
@@ -351,6 +357,7 @@ class MemSegDiffusionNetDataset(Dataset):
             self.faces.append(faces)
             self.vert_normals.append(vert_normals)
             self.gt_pos.append(gt_pos)
+            self.tomo_files.append(tomo_file)
             if self.overfit:
                 break
 
