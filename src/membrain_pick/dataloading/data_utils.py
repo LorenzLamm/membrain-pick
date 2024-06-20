@@ -96,7 +96,13 @@ def store_mesh_in_hdf5(out_file: str,
         f.create_dataset("points", data=points)
         f.create_dataset("faces", data=faces)
         for key, value in kwargs.items():
-            f.create_dataset(key, data=value)
+            if value is not None:
+                if isinstance(value, str):
+                    # Convert string to numpy array of variable-length UTF-8 strings
+                    dt = h5py.string_dtype(encoding='utf-8')
+                    f.create_dataset(key, data=np.array(value, dtype=dt))
+                else:
+                    f.create_dataset(key, data=value)
 
 
 def load_mesh_from_hdf5(in_file: str):
