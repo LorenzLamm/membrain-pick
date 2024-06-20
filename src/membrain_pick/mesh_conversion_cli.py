@@ -578,7 +578,7 @@ def surforama(
     import napari
     from surforama.app import QtSurforama
     import numpy as np
-    from matplotlib.cm import get_cmap
+    from matplotlib.pyplot import get_cmap
     from membrain_pick.dataloading.data_utils import load_mesh_from_hdf5
     from membrain_seg.segmentation.dataloading.data_utils import load_tomogram
 
