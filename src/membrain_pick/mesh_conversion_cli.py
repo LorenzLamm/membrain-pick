@@ -93,7 +93,7 @@ def convert_single_file(
         1000, help="Smoothing factor for the mesh. Default: 1000"
     ),
     barycentric_area: float = Option(  # noqa: B008
-        50.0, help="Barycentric area for the mesh. Default: 1.0"
+        400.0, help="Barycentric area for the mesh. Default: 1.0"
     ),
     crop_box_flag: bool = Option(  # noqa: B008
         False, help="Should the mesh be cropped to the bounding box of the segmentation?"
@@ -164,7 +164,7 @@ def convert_mb_folder(
         1000, help="Smoothing factor for the mesh. Default: 1000"
     ),
     barycentric_area: float = Option(  # noqa: B008
-        50.0, help="Barycentric area for the mesh. Default: 1.0"
+        400.0, help="Barycentric area for the mesh. Default: 1.0"
     ),
     crop_box_flag: bool = Option(  # noqa: B008
         False, help="Should the mesh be cropped to the bounding box of the segmentation?"
@@ -232,7 +232,7 @@ def convert_folder_structure(
         1000, help="Smoothing factor for the mesh. Default: 1000"
     ),
     barycentric_area: float = Option(  # noqa: B008
-        50.0, help="Barycentric area for the mesh. Default: 1.0"
+        400.0, help="Barycentric area for the mesh. Default: 1.0"
     ),
     crop_box_flag: bool = Option(  # noqa: B
         False, help="Should the mesh be cropped to the bounding box of the segmentation?"
