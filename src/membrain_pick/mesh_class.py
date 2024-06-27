@@ -16,6 +16,10 @@ class Mesh(object):
 
     def __len__(self):
         return len(self.triangle_combos)
+
+    def _reinit_nn(self):
+        self.compute_triangle_centers()
+        self.nn_entity = NearestNeighbors(n_neighbors=1).fit(self.triangle_centers)
     
     def compute_triangle_areas(self):
         ## Use Heron's formula
