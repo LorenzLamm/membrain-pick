@@ -158,7 +158,6 @@ def convert_seg_to_evenly_spaced_mesh(
         barycentric_area=10, 
         was_rescaled=False,
         input_pixel_size=14.08, # TODO: remove
-        output_pixel_size=10.0 # TODO: remove
         ):
     # Convert segmentation to mesh using marching cubes
     mesh = convert_seg_to_mesh(

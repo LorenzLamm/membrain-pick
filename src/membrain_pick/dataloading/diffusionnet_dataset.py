@@ -151,7 +151,8 @@ class MemSegDiffusionNetDataset(Dataset):
                 "faces": self.part_faces[idx],
                 "normals": self.part_normals[idx],
                 "mb_idx": self.part_mb_idx[idx],
-                "mb_token": os.path.basename(self.data_paths[self.part_mb_idx[idx]][0])[:-8],
+                # "mb_token": os.path.basename(self.data_paths[self.part_mb_idx[idx]][0])[:-8],
+                "mb_token": os.path.basename(self.data_paths[self.part_mb_idx[idx]][0])[:-3],
                 "tomo_file": self.tomo_files[self.part_mb_idx[idx]],
                 "gt_pos": self.part_gt_pos[idx] * self.max_tomo_shape,
                 "vert_weights": self.part_vert_weights[idx]
@@ -175,11 +176,19 @@ class MemSegDiffusionNetDataset(Dataset):
 
         idx_dict = self.transforms(idx_dict, keys=["membrane"], mb_tree=self.kdtrees[idx])
         if self.shuffle:
-            idx_start_range = range(4)
-            idx_start = np.random.choice(idx_start_range)
+            assert idx_dict["membrane"].shape[1] >= 13
+            feature_channels = idx_dict["membrane"][:, 3:].shape[1] - 10
+            idx_start_range = range(feature_channels)
+            idx_start = np.random.choice(idx_start_range) + 3
             idx_dict["membrane"] = np.concatenate(
                 (idx_dict["membrane"][:, :3],
                 idx_dict["membrane"][:, idx_start:idx_start+10]), axis=1
+            )
+        else:
+            center_feature_start = (idx_dict["membrane"][:, 3:].shape[1] - 10) // 2
+            idx_dict["membrane"] = np.concatenate(
+                (idx_dict["membrane"][:, :3],
+                idx_dict["membrane"][:, center_feature_start:center_feature_start+10]), axis=1
             )
         idx_dict = convert_to_torch(idx_dict)
         idx_dict = self._convert_to_diffusion_input(idx_dict, overwrite_cache_flag=not self.visited_flags[idx])
@@ -310,22 +319,27 @@ class MemSegDiffusionNetDataset(Dataset):
             tomo_file = "" if not "tomo_file" in mesh_data.keys() else mesh_data["tomo_file"]
 
             points = np.concatenate([points, normal_values], axis=1)
-
             if os.path.isfile(gt_path):
                 gt_data = read_star_file(gt_path) # pandas dataframe
-                gt_pos = gt_data[["rlnCoordinateX", "rlnCoordinateY", "rlnCoordinateZ"]].values
-                assert "rlnCoordinateX" in gt_data.columns, "rlnCoordinateX not in columns"
-                if "rlnClassNumber" in gt_data.columns:
-                    gt_classes = gt_data["rlnClassNumber"].values
-                else:
-                    gt_classes = np.zeros(gt_pos.shape[0])
+                # check size of gt_data
+                if gt_data.shape[0] == 0:
+                    gt_pos = np.zeros((1, 3))
+                    gt_classes = np.zeros(1)
                     self.allpos = True
-
-                gt_pos = project_points_to_nearest_hyperplane(gt_pos, points[:, :3])
+                else:
+                    gt_pos = gt_data[["rlnCoordinateX", "rlnCoordinateY", "rlnCoordinateZ"]].values
+                    assert "rlnCoordinateX" in gt_data.columns, "rlnCoordinateX not in columns"
+                    if "rlnClassNumber" in gt_data.columns:
+                        gt_classes = gt_data["rlnClassNumber"].values
+                    else:
+                        gt_classes = np.zeros(gt_pos.shape[0])
+                        self.allpos = True
+                    gt_pos = project_points_to_nearest_hyperplane(gt_pos, points[:, :3])
             else:
                 gt_pos = np.zeros((1, 3))
                 gt_classes = np.zeros(1)
                 self.allpos = True
+
 
             gt_mask = self._get_GT_mask(gt_pos, gt_classes)
             gt_pos = gt_pos[gt_mask]
@@ -347,6 +361,7 @@ class MemSegDiffusionNetDataset(Dataset):
 
             distances[distances > 10] = 10
             distances[mask] = 10.05
+
             points[:, :3] /= self.max_tomo_shape
             points[:, :3] *= self.process_pixel_size
             gt_pos /= self.max_tomo_shape

@@ -27,6 +27,7 @@ def mean_shift_for_scores(
                                   device=device,
                                   margin=margin)
     
+    
     positions = torch.from_numpy(positions).to(device)
     scores = torch.from_numpy(scores).to(device)
     mask = scores < score_threshold
@@ -34,7 +35,6 @@ def mean_shift_for_scores(
         return np.zeros((0, 3)), np.array([])
     scores = scores[mask]
     positions = positions[mask]
-
     out = ms_forwarder.mean_shift_forward(positions, scores)
     out_pos = out[0]
     out_p_num = out[1]
