@@ -85,8 +85,13 @@ def get_cur_mb_key(mb_key, only_largest_component, k, sub_seg_count, seg):
 
 
 def save_mesh_data(
-    out_file_base: str, mesh: Mesh, points: np.ndarray, faces: np.ndarray,
-    point_normals: np.ndarray, normal_values: np.ndarray, only_obj: bool, tomo_file: str = None,
+    out_file_base: str, 
+    points: np.ndarray, 
+    faces: np.ndarray,
+    point_normals: np.ndarray, 
+    normal_values: np.ndarray, 
+    only_obj: bool, 
+    tomo_file: str = None,
     pixel_size: float = None
 ) -> None:
     """
@@ -96,8 +101,6 @@ def save_mesh_data(
     ----------
     out_file_base : str
         Base name for the output files.
-    mesh : Mesh
-        Mesh object.
     points : np.ndarray
         Points data.
     faces : np.ndarray
@@ -115,17 +118,8 @@ def save_mesh_data(
     -------
     None
     """
-    out_file = f"{out_file_base}_mesh_data.csv"
-    out_file_faces = f"{out_file_base}_mesh_faces.csv"
-    out_file_normals = f"{out_file_base}_mesh_normals.csv"
-    out_file_normals_vtp = f"{out_file_base}_mesh_normals.vtp"
-
 
     if not only_obj:
-        out_data = np.concatenate([points, normal_values], axis=1)
-        store_array_in_csv(out_file, out_data)
-        store_array_in_csv(out_file_faces, faces)
-        store_array_in_csv(out_file_normals, point_normals * -1)
         store_mesh_in_hdf5(
             out_file=out_file_base + ".h5",
             points=points,
@@ -135,14 +129,9 @@ def save_mesh_data(
             tomo_file=os.path.abspath(tomo_file),
             pixel_size=pixel_size
         )
-        store_point_and_vectors_in_vtp(
-            out_file_normals_vtp, points, point_normals,
-            in_scalars=[normal_values[:, k] for k in range(normal_values.shape[1])]
-        )
 
     mesh = Mesh(points, faces + 1)
-    mesh.store_in_file(out_file.replace(".csv", ".obj"))
-    return out_file
+    mesh.store_in_file(out_file_base + ".obj")
 
 
 
@@ -235,9 +224,8 @@ def convert_to_mesh(
                                                         verts=points,
                                                         normals=point_normals)
 
-        out_file = save_mesh_data(
+        save_mesh_data(
             out_file_base=os.path.join(out_folder, token + "_" + cur_mb_key),
-             mesh=mesh, 
              points=points, 
              faces=faces, 
              point_normals=point_normals, 
@@ -246,7 +234,3 @@ def convert_to_mesh(
              tomo_file=tomo_file,
              pixel_size=1. # points dimension corresponds already to tomogram dimensions
              )
-
-        if crop_box_flag:
-            store_tomogram(out_file.replace(".csv", ".mrc"), cur_tomo)
-            store_tomogram(out_file.replace(".csv", "_seg.mrc"), cur_seg)
