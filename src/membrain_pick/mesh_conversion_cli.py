@@ -660,3 +660,91 @@ def surforama(
 
     napari.run()
 
+
+@cli.command(name="tomotwin_extract", no_args_is_help=True)
+def tomotwin_extract(
+    h5_path: str = Option(  # noqa: B008
+        ...,
+        help="Path to the h5 container with predicted positions.",
+        **PKWARGS,
+    ),
+    output_dir: str = Option(  # noqa: B008
+        "./subvolumes", help="Path to the folder where the subvolumes should be stored."
+    ),
+    tomogram_path: str = Option(  # noqa: B008
+        default="", help="Path to the tomogram to extract subvolumes from", 
+    ),
+):
+    """
+    Extract subvolumes from the tomogram using the predicted positions.
+    
+    The subvolumes are saved as single .mrc files in size (37, 37, 37). This is the
+    format required by TomoTwin. 
+    The extracted subvolumes can therefore be used to generate TomoTwin embeddings
+    for the predicted positions.
+    """
+
+    from membrain_pick.tomotwin_extract import tomotwin_extract_subvolumes
+
+    tomotwin_extract_subvolumes(
+        h5_path=h5_path,
+        output_dir=output_dir,
+        tomogram_path=tomogram_path,
+    )
+
+@cli.command(name="tomotwin_embeddings", no_args_is_help=True)
+def tomotwin_embeddings(
+        subvolume_folder: str = Option(  # noqa: B008
+            ..., help="Path to the folder containing the subvolumes.", **PKWARGS
+        ),
+        output_folder: str = Option(  # noqa: B008
+            "./embeddings", help="Path to the folder where the embeddings should be stored."
+        ),
+        model_path: str = Option(  # noqa: B008
+            ..., help="Path to the model checkpoint.", **PKWARGS
+        ),
+        batch_size: int = Option(  # noqa: B008
+            12, help="Batch size."
+        ),):
+        """
+        This command generates TomoTwin embeddings for the subvolumes using the given model checkpoint.
+
+        IMPORTANT: The TomoTwin embeddings command must be executed in a Python environment with the TomoTwin package installed.
+        TomoTwin can be installed via
+        pip install tomotwin-cryoet
+
+        More information at:
+        https://tomotwin-cryoet.readthedocs.io/en/stable/installation.html#installation
+
+        WARNING: Having MemBrain and TomoTwin installed in the same environment can lead to conflicts. 
+        Therefore, the safest way to generate TomoTwin embeddings is to create a separate environment for TomoTwin.
+        If you encounter any issues, please report on GitHub.
+        """
+        import shutil
+        import subprocess
+
+        if shutil.which('tomotwin_embed.py') is None:
+            print("tomotwin_embed.py command is not available. Please use a Python environment with TomoTwin installed.")
+            print("In this environment, run the following code to generate TomoTwin embeddings:")
+
+            print(f"tomotwin_embed.py subvolumes -m {model_path} -v {subvolume_folder}/*.mrc -b {batch_size} -o {output_folder}")
+            return
+
+        # Construct the embedding command
+        command = [
+            "tomotwin_embed.py",
+            "subvolumes",
+            "-m", model_path,
+            "-v", f"{subvolume_folder}/*.mrc",
+            "-b", "12",
+            "-o", output_folder
+        ]
+        
+        # Execute the embedding command
+        result = subprocess.run(command, capture_output=True, text=True, shell=True)
+        
+        if result.returncode != 0:
+            print(f"Error executing the embedding command: {result.stderr}")
+        else:
+            print(f"Embedding command executed successfully: {result.stdout}")
+
