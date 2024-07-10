@@ -44,7 +44,8 @@ dependencies = [
     "lxml[html_clean]",
     "starfile",
     "h5py",
-    "PyQt5"
+    "PyQt5",
+    "trimesh"
 ]
 
 
