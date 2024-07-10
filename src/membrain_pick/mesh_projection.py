@@ -127,7 +127,7 @@ def save_mesh_data(
         store_array_in_csv(out_file_faces, faces)
         store_array_in_csv(out_file_normals, point_normals * -1)
         store_mesh_in_hdf5(
-            out_file=out_file_base + "_mesh.h5",
+            out_file=out_file_base + ".h5",
             points=points,
             faces=faces,
             normals=point_normals,
