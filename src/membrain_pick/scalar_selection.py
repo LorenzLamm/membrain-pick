@@ -28,7 +28,7 @@ class ScalarSelectionWidget(QWidget):
         colors = self.get_colored_mesh(scalars)
 
         if colors is not None:
-            self.surface_layer.vertex_colors = colors
+            self.surface_layer.data[2] = colors
 
     def get_colored_mesh(self, scalars):
 
