@@ -53,6 +53,7 @@ def save_output(cur_mb_data, out_dir, mb_token):
 
 def save_output_h5(unique_verts, new_faces, unique_scores, unique_labels, out_file_csv, cluster_centers=None, tomo_file="", pixel_size=10.):
     out_file_h5 = out_file_csv.replace(".csv", ".h5")
+    print(f"Saving to {out_file_h5}")
     store_mesh_in_hdf5(
         out_file=out_file_h5,
         points=unique_verts,
@@ -89,7 +90,7 @@ def predict(
         partition_size: int = 2000,
         input_pixel_size: float = 10.0,
         process_pixel_size: float = 15.0,
-        max_tomo_shape: int = 1000,
+        force_recompute_partitioning: bool = False,
         k_eig: int = 128,
 
         # Mean shift parameters
@@ -121,7 +122,7 @@ def predict(
         process_pixel_size=process_pixel_size,
         k_eig=k_eig,
         batch_size=1,
-        force_recompute=True,
+        force_recompute=force_recompute_partitioning,
         num_workers=0,
         pin_memory=False,
         allpos=True,
@@ -189,6 +190,7 @@ def predict(
                                                     margin=mean_shift_margin, 
                                                     score_threshold=mean_shift_score_threshold, 
                                                     device=mean_shift_device)
+                
                 store_clusters(
                     csv_file=out_file_csv,
                     out_dir=out_dir,

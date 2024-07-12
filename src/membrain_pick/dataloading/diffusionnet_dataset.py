@@ -191,7 +191,8 @@ class MemSegDiffusionNetDataset(Dataset):
                 idx_dict["membrane"][:, center_feature_start:center_feature_start+10]), axis=1
             )
         idx_dict = convert_to_torch(idx_dict)
-        idx_dict = self._convert_to_diffusion_input(idx_dict, overwrite_cache_flag=not self.visited_flags[idx])
+        overwrite_cache_flag = not self.visited_flags[idx] and self.force_recompute
+        idx_dict = self._convert_to_diffusion_input(idx_dict, overwrite_cache_flag=overwrite_cache_flag)
         self.visited_flags[idx] = True
         return idx_dict
     

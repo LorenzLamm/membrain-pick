@@ -426,8 +426,8 @@ def predict(
     process_pixel_size: float = Option(  # noqa: B008
         15.0, help="Pixel size of the tomogram."
     ),
-    max_tomo_shape: int = Option(  # noqa: B008
-        928, help="Maximum shape of the tomogram."
+    force_recompute_partitioning: bool = Option(  # noqa: B008
+        False, help="Should the partitioning be recomputed?"
     ),
     k_eig: int = Option(  # noqa: B008
         128, help="Number of eigenvectors."
@@ -465,7 +465,7 @@ def predict(
         partition_size=partition_size,
         input_pixel_size=input_pixel_size,
         process_pixel_size=process_pixel_size,
-        max_tomo_shape=max_tomo_shape,
+        force_recompute_partitioning=force_recompute_partitioning,
         k_eig=k_eig,
         mean_shift_output=mean_shift_output,
         mean_shift_bandwidth=mean_shift_bandwidth,
