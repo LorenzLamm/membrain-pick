@@ -550,9 +550,9 @@ def initialize_points(point_io, point_coordinates,):
     }
 
     # add the data to the viewer
-    point_io.surface_picker.points_layer.current_size = 6.
     point_io.surface_picker.points_layer.data = point_coordinates
     point_io.surface_picker.points_layer.features = features_table
+    point_io.surface_picker.points_layer.size = np.array([10] * point_coordinates.shape[0])
 
     point_io.surface_picker.normal_vectors_layer.data = normal_data
     point_io.surface_picker.up_vectors_layer.data = up_data
@@ -653,6 +653,7 @@ def surforama(
             point_io=point_io,
             point_coordinates=cluster_centers,
         )
+        surforama_widget.picking_widget.enabled = False
 
     viewer.window.add_dock_widget(
         surforama_widget, area="right", name="Surforama"
