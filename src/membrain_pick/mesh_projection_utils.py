@@ -20,10 +20,9 @@ def get_connected_components(seg, only_largest=True):
     seg = seg > 0
     seg, _ = label(seg)
     if only_largest:
-        print(f"Only using the largest connected component (found {seg.max()} components)") 
         seg = seg == np.argmax(np.bincount(seg.flat)[1:]) + 1
     else:
-        print(f"Found {seg.max()} connected components")
+        return seg
     return seg
 
 def get_cropped_arrays(seg, tomo, expansion=20):
@@ -61,11 +60,8 @@ def assign_vertex_normals_from_face_normals(verts, faces, face_normals):
     """
     Assigns a normal to each vertex based on the average of the face normals that share the vertex
     """
-    print("Assigning vertex normals from face normals")
     vertex_normals = np.zeros(verts.shape, dtype=float)
     for i in range(verts.shape[0]):
-        if i % 1000 == 0:
-            print(f"Processing vertex {i} of {verts.shape[0]}")
         faces_with_vertex = np.where(faces == i)[0]
         vertex_normals[i] = np.mean(face_normals[faces_with_vertex], axis=0)
     return vertex_normals
@@ -75,7 +71,6 @@ def assign_vertex_normals_from_face_normals(verts, faces, face_normals):
     """
     Assigns a normal to each vertex based on the average of the face normals that share the vertex
     """
-    print("Assigning vertex normals from face normals")
     
     # Create an array to hold the sum of normals for each vertex
     vertex_normals = np.zeros_like(verts, dtype=float)
@@ -125,14 +120,11 @@ def get_normals_from_face_order(mesh, return_face_normals=False):
     faces = np.reshape(faces, (-1, 4))
     faces = faces[:, 1:].copy()
     points = mesh.points
-    print("Calculating normals from face order")
 
     # Get normals per triangle and assign back to vertices
     mesh_normals = np.array(face_normals(points, faces))
-    print("Normals calculated")
     if return_face_normals:
         return points, faces, mesh_normals
     
     vert_normals = assign_vertex_normals_from_face_normals(points, faces, mesh_normals)
-    print("Vertex normals assigned")
     return points, faces, vert_normals

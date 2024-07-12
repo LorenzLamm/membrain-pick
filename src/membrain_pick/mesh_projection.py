@@ -76,7 +76,6 @@ def get_sub_segment(
 
 def get_cur_mb_key(mb_key, only_largest_component, k, sub_seg_count, seg):
     if not only_largest_component:
-        print(f"Processing sub-seg {k} of {mb_key}. Total seg count {float(seg.max())}")
         sub_seg_count += 1
         cur_mb_key = mb_key + f"_{sub_seg_count}"
     else:
