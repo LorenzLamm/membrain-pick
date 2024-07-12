@@ -105,7 +105,7 @@ def predict(
     """Predict the output of the trained model on the given data.
 
     Args:
-        data_dir (str): The directory containing the data to predict.
+        data_dir (str): The directory containing the data to prespandict.
         out_dir (str): The directory to save the output to.
         predict_entire_dir (bool): Whether to predict the entire directory.
     """
@@ -171,12 +171,6 @@ def predict(
             verts_count = 0
         faces = batch["faces"] + verts_count
         verts_count += batch["verts_orig"].shape[0]
-
-        def mse_loss(output, labels, weights):
-            return ((output.cpu().detach()*weights - labels*weights) ** 2).mean()
-        loss = mse_loss(output["mse"].squeeze(), labels, weights=vert_weights)
-        print(f"Loss: {loss}")
-        print("Span:", torch.min(output["mse"].squeeze()), torch.max(output["mse"].squeeze()))
 
         if cur_mb_nr != prev_mb_nr:
             unique_verts, unique_scores, out_file_csv, unique_labels, new_faces = save_output(cur_mb_data, out_dir, prev_mb_token)
