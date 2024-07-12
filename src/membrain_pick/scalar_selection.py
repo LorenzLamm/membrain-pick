@@ -19,7 +19,7 @@ class ScalarSelectionWidget(QWidget):
         self.channel_selector.setRange(0, self.len_features - 1)
         self.layout.addWidget(self.channel_selector)
 
-        self.scalar_selector.currentIndexChanged.connect(self.update_coloring)
+        self.channel_selector.valueChanged.connect(self.update_coloring)
 
     def update_coloring(self):
         selected_channel = self.channel_selector.value()
