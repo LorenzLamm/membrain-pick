@@ -133,6 +133,8 @@ def save_mesh_data(
     mesh = Mesh(points, faces + 1)
     mesh.store_in_file(out_file_base + ".obj")
 
+    # precompute spectrals and partitioning
+
 
 
 def convert_to_mesh(
@@ -208,7 +210,6 @@ def convert_to_mesh(
                                                  smoothing=mesh_smoothing,
                                                  was_rescaled=True, #TODO: make adjustable
                                                  input_pixel_size=input_pixel_size,
-                                                 output_pixel_size=output_pixel_size,
                                                  barycentric_area=barycentric_area)
         
         points, faces, point_normals = get_normals_from_face_order(mesh)
