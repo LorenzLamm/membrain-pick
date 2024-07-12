@@ -550,6 +550,7 @@ def initialize_points(point_io, point_coordinates,):
     }
 
     # add the data to the viewer
+    point_io.surface_picker.points_layer.current_size = 6.
     point_io.surface_picker.points_layer.data = point_coordinates
     point_io.surface_picker.points_layer.features = features_table
 
@@ -659,7 +660,6 @@ def surforama(
 
     if "normal_values" in mesh_data.keys():
         normal_values = mesh_data["normal_values"]
-        print(normal_values.shape, "<----")
         surface_layer_proj = viewer.add_surface(
             (points, faces), name="Projections", shading="none"
         )
