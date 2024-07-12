@@ -1,5 +1,4 @@
 from qtpy.QtWidgets import QWidget, QVBoxLayout, QLabel, QSpinBox
-from matplotlib.pyplot import get_cmap
 import numpy as np
 
 class ScalarSelectionWidget(QWidget):
@@ -24,8 +23,8 @@ class ScalarSelectionWidget(QWidget):
     def update_coloring(self):
         selected_channel = self.channel_selector.value()
         
-        scalars = self.normal_values[:, selected_channel]  # Select the feature channel
-        colors = self.get_colored_mesh(scalars)
+        scalars = self.normal_values[:, self.len_features - selected_channel - 1] # reverse order to go from inside to outside
+        colors = self.normalize_colors(scalars)
 
         if colors is not None:
             self.surface_layer.data = (
@@ -33,18 +32,9 @@ class ScalarSelectionWidget(QWidget):
                 self.surface_layer.data[1],
                 colors,
             )
-            # self.surface_layer.data[2] = colors
 
-    def get_colored_mesh(self, scalars):
-
+    def normalize_colors(self, scalars):
         normalized_values = (scalars - scalars.min()) / (
             scalars.max() - scalars.min() + np.finfo(float).eps
         )
-        # normalized_scalars = scalars / 10.0
-        # normalized_scalars[normalized_scalars < 0] = 0
-        # normalized_scalars[normalized_scalars > 1] = 1
-        # normalized_scalars = 1 - normalized_scalars
-        # colors = np.stack([normalized_scalars] * 3, axis=-1)
-        # cmap = get_cmap('RdBu')
-        # colors = cmap(normalized_scalars)[:, :3]  # Get RGB values and discard the alpha channel
         return normalized_values
