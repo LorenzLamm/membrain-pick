@@ -581,6 +581,7 @@ def surforama(
     from matplotlib.pyplot import get_cmap
     from membrain_pick.dataloading.data_utils import load_mesh_from_hdf5
     from membrain_seg.segmentation.dataloading.data_utils import load_tomogram
+    from membrain_pick.scalar_selection import ScalarSelectionWidget
 
     viewer = napari.Viewer(ndisplay=3)
 
@@ -657,6 +658,18 @@ def surforama(
     viewer.window.add_dock_widget(
         surforama_widget, area="right", name="Surforama"
     )
+
+    if "normal_values" in mesh_data.keys():
+        normal_values = mesh_data["normal_values"]
+        print(normal_values.shape, "<----")
+        surface_layer_proj = viewer.add_surface(
+            (points, faces), name="Projections", shading="none"
+        )
+        scalar_selection_widget = ScalarSelectionWidget(surface_layer_proj, normal_values)
+
+        viewer.window.add_dock_widget(
+            scalar_selection_widget, area="right", name="Scalar Selection"
+        )
 
     napari.run()
 
