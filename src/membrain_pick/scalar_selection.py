@@ -31,11 +31,15 @@ class ScalarSelectionWidget(QWidget):
             self.surface_layer.vertex_colors = colors
 
     def get_colored_mesh(self, scalars):
-        normalized_scalars = scalars / 10.0
-        normalized_scalars[normalized_scalars < 0] = 0
-        normalized_scalars[normalized_scalars > 1] = 1
-        normalized_scalars = 1 - normalized_scalars
-        colors = np.stack([normalized_scalars] * 3, axis=-1)
+
+        normalized_values = (scalars - scalars.min()) / (
+            scalars.max() - scalars.min() + np.finfo(float).eps
+        )
+        # normalized_scalars = scalars / 10.0
+        # normalized_scalars[normalized_scalars < 0] = 0
+        # normalized_scalars[normalized_scalars > 1] = 1
+        # normalized_scalars = 1 - normalized_scalars
+        # colors = np.stack([normalized_scalars] * 3, axis=-1)
         # cmap = get_cmap('RdBu')
         # colors = cmap(normalized_scalars)[:, :3]  # Get RGB values and discard the alpha channel
-        return colors
+        return normalized_values
