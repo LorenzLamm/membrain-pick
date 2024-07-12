@@ -610,11 +610,11 @@ def surforama(
                                         depiction="plane",
                                         blending="translucent",
                                         plane=plane_properties,)
+    pixel_size = None
     if "pixel_size" in mesh_data.keys():
         pixel_size = mesh_data["pixel_size"]
-
     if pixel_size is None:
-        raise ValueError("Pixel size not found in the mesh data or the tomogram.")
+        raise ValueError("Pixel size not found in the mesh data.")
 
     points = mesh_data["points"] / pixel_size
     points = np.stack(points[:, [2, 1, 0]])
@@ -633,8 +633,6 @@ def surforama(
         surface_layer = viewer.add_surface(
             (points, faces), vertex_colors=colors, name="Scores", shading="none"
         )
-    if "labels" in mesh_data.keys():
-        labels = mesh_data["labels"]
     if "cluster_centers" in mesh_data.keys():
         cluster_centers = mesh_data["cluster_centers"] / pixel_size
         cluster_centers = np.stack(cluster_centers[:, [2, 1, 0]])
