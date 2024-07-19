@@ -224,6 +224,8 @@ def predict(
                                          margin=mean_shift_margin, 
                                          score_threshold=mean_shift_score_threshold, 
                                          device=mean_shift_device)
+        if clusters.shape[0] == 0:
+            clusters = np.zeros((0, 3))
         store_clusters(
             csv_file=out_file_csv,
             out_dir=out_dir,

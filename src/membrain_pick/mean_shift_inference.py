@@ -80,6 +80,6 @@ def store_clusters(
     print(out_pos.shape, "clusters found")
     store_array_in_star(
         out_file=os.path.join(out_dir, os.path.basename(csv_file).replace('.csv', '_clusters.star')),
-        data=out_pos / 7.8,
+        data=out_pos,
         header=["rlnCoordinateX", "rlnCoordinateY", "rlnCoordinateZ"]
     )
