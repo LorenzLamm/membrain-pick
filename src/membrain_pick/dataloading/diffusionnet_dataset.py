@@ -30,7 +30,7 @@ class MemSegDiffusionNetDataset(Dataset):
         load_only_sampled_points: int = None,
         overfit: bool = False,
         is_single_mb: bool = False,
-        cache_dir: str = "/scicore/home/engel0006/GROUP/pool-engel/Lorenz/2D_projections/diffusion_net_training/mesh_cache2",
+        cache_dir: str = "./cashe_dir/",
         force_recompute: bool = False,
         augment_all: bool = True,
         overfit_mb: bool = False,
@@ -54,7 +54,7 @@ class MemSegDiffusionNetDataset(Dataset):
             "aggregate_coordinates": False,
             "random_sample_thickness": False,
             "use_faces": True,
-            "cache_dir": "/scicore/home/engel0006/GROUP/pool-engel/Lorenz/Mesh_Detection/DiffusionNet/cache_dir",
+            "cache_dir": "./cache_dir/diffusion_operators",
         }
 
     
@@ -68,7 +68,6 @@ class MemSegDiffusionNetDataset(Dataset):
         self.load_only_sampled_points = load_only_sampled_points
         self.overfit = overfit
         self.overfit_mb = overfit_mb
-        self.cache_dir = cache_dir
         self.is_single_mb = is_single_mb
         self.force_recompute = force_recompute
         self.aug_prob_to_one = aug_prob_to_one
@@ -84,7 +83,8 @@ class MemSegDiffusionNetDataset(Dataset):
         self.shuffle = shuffle
 
         self.diffusion_operator_params["k_eig"] = k_eig
-        self.diffusion_operator_params["cache_dir"] = cache_dir
+        self.diffusion_operator_params["cache_dir"] = os.path.join(cache_dir, "diffusion_operators")
+        self.cache_dir = os.path.join(cache_dir, "mesh_partitioning")
 
         self.max_tomo_shape = 500. # TODO: rename and hard-code everywhere
         self.test_mb = test_mb
@@ -191,7 +191,8 @@ class MemSegDiffusionNetDataset(Dataset):
                 idx_dict["membrane"][:, center_feature_start:center_feature_start+10]), axis=1
             )
         idx_dict = convert_to_torch(idx_dict)
-        idx_dict = self._convert_to_diffusion_input(idx_dict, overwrite_cache_flag=not self.visited_flags[idx])
+        overwrite_cache_flag = not self.visited_flags[idx] and self.force_recompute
+        idx_dict = self._convert_to_diffusion_input(idx_dict, overwrite_cache_flag=overwrite_cache_flag)
         self.visited_flags[idx] = True
         return idx_dict
     

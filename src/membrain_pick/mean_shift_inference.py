@@ -64,22 +64,22 @@ def store_clusters(
         out_p_num: np.ndarray,
 ):
     os.makedirs(out_dir, exist_ok=True)
-    store_array_in_csv(
-        out_file=os.path.join(out_dir, os.path.basename(csv_file).replace('.csv', '_clusters.csv')),
-        data=out_pos, header=["x", "y", "z"]
-    )
-    store_array_in_npy(
-        out_file=os.path.join(out_dir, os.path.basename(csv_file).replace('.csv', '_clusters.npy')),
-        data=out_pos
-    )
-    store_point_and_vectors_in_vtp(
-        out_path=os.path.join(out_dir, os.path.basename(csv_file).replace('.csv', '_clusters.vtp')),
-        in_points=out_pos,
-        in_scalars=[out_p_num, np.arange(out_pos.shape[0])],
-    )
+    # store_array_in_csv(
+    #     out_file=os.path.join(out_dir, os.path.basename(csv_file).replace('.csv', '_clusters.csv')),
+    #     data=out_pos, header=["x", "y", "z"]
+    # )
+    # store_array_in_npy(
+    #     out_file=os.path.join(out_dir, os.path.basename(csv_file).replace('.csv', '_clusters.npy')),
+    #     data=out_pos
+    # )
+    # store_point_and_vectors_in_vtp(
+    #     out_path=os.path.join(out_dir, os.path.basename(csv_file).replace('.csv', '_clusters.vtp')),
+    #     in_points=out_pos,
+    #     in_scalars=[out_p_num, np.arange(out_pos.shape[0])],
+    # )
     print(out_pos.shape, "clusters found")
     store_array_in_star(
         out_file=os.path.join(out_dir, os.path.basename(csv_file).replace('.csv', '_clusters.star')),
-        data=out_pos / 7.8,
+        data=out_pos,
         header=["rlnCoordinateX", "rlnCoordinateY", "rlnCoordinateZ"]
     )

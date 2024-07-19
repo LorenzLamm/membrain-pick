@@ -110,7 +110,7 @@ def train(
     checkpointing_name = project_name + "_" + sub_name
     # Set up logging
     csv_logger = pl_loggers.CSVLogger(log_dir)
-    wandb_logger = pl_loggers.WandbLogger(name=checkpointing_name, project=project_name)
+    # wandb_logger = pl_loggers.WandbLogger(name=checkpointing_name, project=project_name)
 
     # Set up model checkpointing
     checkpoint_callback_val_loss = ModelCheckpoint(
@@ -140,7 +140,7 @@ def train(
     # Set up the trainer
     trainer = pl.Trainer(
         precision="32",
-        logger=[csv_logger, wandb_logger],
+        logger=[csv_logger],
         callbacks=[
             checkpoint_callback_val_loss,
             checkpoint_callback_regular,

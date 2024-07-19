@@ -426,8 +426,8 @@ def predict(
     process_pixel_size: float = Option(  # noqa: B008
         15.0, help="Pixel size of the tomogram."
     ),
-    max_tomo_shape: int = Option(  # noqa: B008
-        928, help="Maximum shape of the tomogram."
+    force_recompute_partitioning: bool = Option(  # noqa: B008
+        False, help="Should the partitioning be recomputed?"
     ),
     k_eig: int = Option(  # noqa: B008
         128, help="Number of eigenvectors."
@@ -465,7 +465,7 @@ def predict(
         partition_size=partition_size,
         input_pixel_size=input_pixel_size,
         process_pixel_size=process_pixel_size,
-        max_tomo_shape=max_tomo_shape,
+        force_recompute_partitioning=force_recompute_partitioning,
         k_eig=k_eig,
         mean_shift_output=mean_shift_output,
         mean_shift_bandwidth=mean_shift_bandwidth,
@@ -552,6 +552,7 @@ def initialize_points(point_io, point_coordinates,):
     # add the data to the viewer
     point_io.surface_picker.points_layer.data = point_coordinates
     point_io.surface_picker.points_layer.features = features_table
+    point_io.surface_picker.points_layer.size = np.array([10] * point_coordinates.shape[0])
 
     point_io.surface_picker.normal_vectors_layer.data = normal_data
     point_io.surface_picker.up_vectors_layer.data = up_data
@@ -581,6 +582,7 @@ def surforama(
     from matplotlib.pyplot import get_cmap
     from membrain_pick.dataloading.data_utils import load_mesh_from_hdf5
     from membrain_seg.segmentation.dataloading.data_utils import load_tomogram
+    from membrain_pick.scalar_selection import ScalarSelectionWidget
 
     viewer = napari.Viewer(ndisplay=3)
 
@@ -592,7 +594,8 @@ def surforama(
         tomogram_path = mesh_data["tomo_file"]
         if isinstance(tomogram_path, bytes):
             tomogram_path = tomogram_path.decode("utf-8")
-        
+    
+    volume_layer = None
     if tomogram_path != "":
         tomogram = load_tomogram(tomogram_path)
         pixel_size = tomogram.voxel_size.x
@@ -609,11 +612,11 @@ def surforama(
                                         depiction="plane",
                                         blending="translucent",
                                         plane=plane_properties,)
+    pixel_size = None
     if "pixel_size" in mesh_data.keys():
         pixel_size = mesh_data["pixel_size"]
-
     if pixel_size is None:
-        raise ValueError("Pixel size not found in the mesh data or the tomogram.")
+        raise ValueError("Pixel size not found in the mesh data.")
 
     points = mesh_data["points"] / pixel_size
     points = np.stack(points[:, [2, 1, 0]])
@@ -632,8 +635,6 @@ def surforama(
         surface_layer = viewer.add_surface(
             (points, faces), vertex_colors=colors, name="Scores", shading="none"
         )
-    if "labels" in mesh_data.keys():
-        labels = mesh_data["labels"]
     if "cluster_centers" in mesh_data.keys():
         cluster_centers = mesh_data["cluster_centers"] / pixel_size
         cluster_centers = np.stack(cluster_centers[:, [2, 1, 0]])
@@ -653,10 +654,22 @@ def surforama(
             point_io=point_io,
             point_coordinates=cluster_centers,
         )
+        surforama_widget.picking_widget.enabled = False
 
     viewer.window.add_dock_widget(
         surforama_widget, area="right", name="Surforama"
     )
+
+    if "normal_values" in mesh_data.keys():
+        normal_values = mesh_data["normal_values"]
+        surface_layer_proj = viewer.add_surface(
+            (points, faces), name="Projections", shading="none"
+        )
+        scalar_selection_widget = ScalarSelectionWidget(surface_layer_proj, normal_values)
+
+        viewer.window.add_dock_widget(
+            scalar_selection_widget, area="right", name="Scalar Selection"
+        )
 
     napari.run()
 
