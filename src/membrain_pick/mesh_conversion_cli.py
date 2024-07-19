@@ -594,7 +594,8 @@ def surforama(
         tomogram_path = mesh_data["tomo_file"]
         if isinstance(tomogram_path, bytes):
             tomogram_path = tomogram_path.decode("utf-8")
-        
+    
+    volume_layer = None
     if tomogram_path != "":
         tomogram = load_tomogram(tomogram_path)
         pixel_size = tomogram.voxel_size.x
