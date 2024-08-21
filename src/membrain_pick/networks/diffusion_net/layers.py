@@ -478,7 +478,7 @@ class AnchorAdjustmentLayer(nn.Module):
 
 class DiffusionNet(nn.Module):
 
-    def __init__(self, C_in, C_out, C_width=128, N_block=4, last_activation=None, outputs_at='vertices', mlp_hidden_dims=None, dropout=True, 
+    def __init__(self, C_in, C_out, C_width=128, N_block=4, conv_width=32, last_activation=None, outputs_at='vertices', mlp_hidden_dims=None, dropout=True, 
                        with_gradient_features=True, with_gradient_rotations=True, diffusion_method='spectral', device="cuda:0",
                        fixed_time=None, one_D_conv_first=False, clamp_diffusion=False, visualize_diffusion=False, visualize_grad_rotations=False, visualize_grad_features=False,):   
         """
@@ -507,6 +507,7 @@ class DiffusionNet(nn.Module):
         self.C_out = C_out
         self.C_width = C_width
         self.N_block = N_block
+        self.conv_width = conv_width
         self.fixed_time = fixed_time
         self.one_D_conv_first = one_D_conv_first
         self.visualize_diffusion = visualize_diffusion
@@ -539,7 +540,7 @@ class DiffusionNet(nn.Module):
         if one_D_conv_first:
             self.conv_block_out_dim = C_width * (C_in // 4)
             self.conv_block = SeparableDiffusionNetBlock(C_in=self.C_in,
-                                    C_width = 32,
+                                    C_width = self.conv_width,
                                     C_in_channels = C_in,
                                       conv_hidden_dims = mlp_hidden_dims,
                                       dropout = dropout,
@@ -548,7 +549,7 @@ class DiffusionNet(nn.Module):
                                       with_gradient_rotations = with_gradient_rotations,
                                       fixed_time=fixed_time,)
             self.conv_block2 = SeparableDiffusionNetBlock(C_in=self.C_in,
-                                    C_width = 32,
+                                    C_width = self.conv_width,
                                     C_in_channels = C_in,
                                       conv_hidden_dims = mlp_hidden_dims,
                                       dropout = dropout,
