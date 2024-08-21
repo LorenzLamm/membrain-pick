@@ -576,6 +576,7 @@ def surforama(
     viewer = napari.Viewer(ndisplay=3)
 
     mesh_files = None
+    value_range = None
     if os.path.isdir(h5_path):
         mesh_files = [os.path.join(h5_path, f) for f in os.listdir(h5_path) if f.endswith(".h5")]
     else:
@@ -595,7 +596,7 @@ def surforama(
             surforama_widget = initialize_surforama_widget(points, faces, volume_layer, viewer)
             display_cluster_centers(viewer, mesh_data, pixel_size, surforama_widget)
         else:
-            display_surforama_without_widget(viewer, points, faces, mesh_data)
+            value_range = display_surforama_without_widget(viewer, points, faces, value_range)
             display_cluster_centers_as_points(viewer, mesh_data, pixel_size)
 
         if h5_nr == 0:
