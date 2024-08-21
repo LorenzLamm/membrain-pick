@@ -124,7 +124,7 @@ def display_cluster_centers_as_points(viewer, mesh_data, pixel_size):
     if "cluster_centers" in mesh_data.keys():
         cluster_centers = mesh_data["cluster_centers"] / pixel_size
         cluster_centers = np.stack(cluster_centers[:, [2, 1, 0]])
-        viewer.add_points(cluster_centers, name="Cluster Centers", size=5, symbol="cross")
+        viewer.add_points(cluster_centers, name="Cluster Centers", size=5, symbol="sphere", edge_color="purple", face_color="purple")
     
 
 def initialize_surforama_widget(points, faces, volume_layer, viewer):
