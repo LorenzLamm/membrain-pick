@@ -170,7 +170,11 @@ def display_surforama_without_widget(viewer, points,faces, value_range=None):
     tomo_data = viewer.layers["tomogram"].data
     surforama_values = get_point_colors(tomo_data, points)
     if value_range is None:
-        value_range = (surforama_values.mean() - 2 * surforama_values.std(), surforama_values.mean() + 2 * surforama_values.std())
+        cutoff_std = 1.5
+        value_range = (
+            surforama_values.mean() - cutoff_std * surforama_values.std(), 
+            surforama_values.mean() + cutoff_std * surforama_values.std()
+            )
     normalized_values = (surforama_values - value_range[0]) / (
         value_range[1] - value_range[0] + np.finfo(float).eps
     )
