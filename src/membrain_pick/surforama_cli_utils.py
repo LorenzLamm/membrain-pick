@@ -8,7 +8,7 @@ from membrain_pick.scalar_selection import ScalarSelectionWidget
 
 def normalize_tomo(tomogram):
     # cut off percentile from 10 to 90
-    cutoff_pct = 0.05
+    cutoff_pct = 0.025
     value_range = (
         np.percentile(tomogram, cutoff_pct * 100),
         np.percentile(tomogram, (1 - cutoff_pct) * 100),
@@ -31,7 +31,7 @@ def display_tomo(viewer, mesh_data, tomogram_path):
         tomogram = load_tomogram(tomogram_path)
         pixel_size = tomogram.voxel_size.x
         tomogram = tomogram.data
-        # tomogram = normalize_tomo(tomogram)
+        tomogram = normalize_tomo(tomogram)
         tomogram = np.transpose(tomogram, (2, 1, 0))
         slice_number = tomogram.shape[0] // 2
         plane_properties = {
