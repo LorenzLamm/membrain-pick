@@ -173,7 +173,7 @@ def display_surforama_without_widget(viewer, points,faces, mesh_data):
         surforama_values.max() - surforama_values.min() + np.finfo(float).eps
     )
     # get black and white color map
-    cmap = get_cmap('RdBu') 
+    cmap = get_cmap('Greys') 
     colors = cmap(normalized_values)[:, :3]  # Get RGB values and discard the alpha channel
     surface_layer_proj = viewer.add_surface(
         (points, faces), name="Projections", shading="none", vertex_colors=colors
