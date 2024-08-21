@@ -8,7 +8,7 @@ from membrain_pick.scalar_selection import ScalarSelectionWidget
 
 def normalize_tomo(tomogram):
     # cut off percentile from 10 to 90
-    cutoff_pct = 0.1
+    cutoff_pct = 0.05
     value_range = (
         np.percentile(tomogram, cutoff_pct * 100),
         np.percentile(tomogram, (1 - cutoff_pct) * 100),
@@ -181,27 +181,26 @@ def get_point_colors(volume, points):
         )
         return normalized_values
 
-def display_surforama_without_widget(viewer, points,faces, value_range=None):
-    tomo_data = viewer.layers["tomogram"].data
-    surforama_values = get_point_colors(tomo_data, points)
+def normalize_surface_values(surface_values, value_range=None):
+    # cut off percentile from 10 to 90
     if value_range is None:
-        # cut off percentile from 10 to 90
-        cutoff_pct = 0.1
+        cutoff_pct = 0.05
         value_range = (
-            np.percentile(surforama_values, cutoff_pct * 100),
-            np.percentile(surforama_values, (1 - cutoff_pct) * 100),
+            np.percentile(surface_values, cutoff_pct * 100),
+            np.percentile(surface_values, (1 - cutoff_pct) * 100),
         )
-        # cutoff_std = 1.5
-        # value_range = (
-        #     surforama_values.mean() - cutoff_std * surforama_values.std(), 
-        #     surforama_values.mean() + cutoff_std * surforama_values.std()
-        #     )
     print("Normalized value range: ", value_range)
-    normalized_values = (surforama_values - value_range[0]) / (
+    normalized_values = (surface_values - value_range[0]) / (
         value_range[1] - value_range[0] + np.finfo(float).eps
     )
     normalized_values[normalized_values < 0] = 0
     normalized_values[normalized_values > 1] = 1
+    return normalized_values, value_range
+
+def display_surforama_without_widget(viewer, points,faces, value_range=None):
+    tomo_data = viewer.layers["tomogram"].data
+    surforama_values = get_point_colors(tomo_data, points)
+    surforama_values, value_range = normalize_surface_values(surforama_values, value_range)
     normalized_values = 1 - normalized_values
     # get black and white color map
     cmap = get_cmap('Greys') 
