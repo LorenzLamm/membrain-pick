@@ -11,7 +11,7 @@ from membrain_pick.mesh_projection_utils import get_connected_components, get_cr
 
 
 def load_data(
-    mb_file: str, only_largest_component: bool, tomo_file: str, tomogram: np.ndarray
+    mb_file: str, only_largest_component: bool, tomo_file: str, tomogram: np.ndarray, rescale_seg: bool
 ) -> np.ndarray:
     """
     Load and process the segmentation data.
@@ -26,6 +26,8 @@ def load_data(
         Path to the tomogram file.
     tomogram : np.ndarray
         Tomogram data -- if provided, this will be used instead of loading the data from the file.
+    rescale_seg : bool
+        Flag to rescale the segmentation data.
 
     Returns
     -------
@@ -36,7 +38,8 @@ def load_data(
     """
     mb_key = os.path.basename(mb_file).split(".")[0]
     seg = load_tomogram(mb_file).data
-    seg = zoom(seg, (0.5, 0.5, 0.5), order=0)
+    if rescale_seg:
+        seg = zoom(seg, (0.5, 0.5, 0.5), order=0)
     seg = get_connected_components(seg, only_largest=only_largest_component)
 
     if tomogram is None:
@@ -195,7 +198,8 @@ def convert_to_mesh(
     """
     
     print(f"Processing {mb_file}")
-    tomo, seg, mb_key = load_data(mb_file, only_largest_component, tomo_file, tomo)
+    rescale_seg = False
+    tomo, seg, mb_key = load_data(mb_file, only_largest_component, tomo_file, tomo, rescale_seg)
 
     sub_seg_count = 0
     for k in range(1, seg.max() + 1):
@@ -207,7 +211,7 @@ def convert_to_mesh(
         # This returns vertices in the new pixel size -- be careful!!
         mesh = convert_seg_to_evenly_spaced_mesh(seg=cur_seg,
                                                  smoothing=mesh_smoothing,
-                                                 was_rescaled=True, #TODO: make adjustable
+                                                 was_rescaled=rescale_seg, #TODO: make adjustable
                                                  input_pixel_size=input_pixel_size,
                                                  barycentric_area=barycentric_area)
         

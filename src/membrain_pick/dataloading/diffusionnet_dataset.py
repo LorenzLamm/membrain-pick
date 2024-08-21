@@ -175,20 +175,30 @@ class MemSegDiffusionNetDataset(Dataset):
             }
 
         idx_dict = self.transforms(idx_dict, keys=["membrane"], mb_tree=self.kdtrees[idx])
-        if self.shuffle:
-            assert idx_dict["membrane"].shape[1] >= 13
-            feature_channels = idx_dict["membrane"][:, 3:].shape[1] - 10
+        if self.shuffle and self.train:
+            assert idx_dict["membrane"].shape[1] >= 16 + 3
+            feature_channels = idx_dict["membrane"][:, 3:].shape[1] - 16
             idx_start_range = range(feature_channels)
             idx_start = np.random.choice(idx_start_range) + 3
             idx_dict["membrane"] = np.concatenate(
                 (idx_dict["membrane"][:, :3],
-                idx_dict["membrane"][:, idx_start:idx_start+10]), axis=1
+                idx_dict["membrane"][:, idx_start:idx_start+16]), axis=1
             )
-        else:
-            center_feature_start = (idx_dict["membrane"][:, 3:].shape[1] - 10) // 2
+        elif self.shuffle and not self.train:
+            assert idx_dict["membrane"].shape[1] >= 16 + 3
+            center_feature_start = (idx_dict["membrane"][:, 3:].shape[1] - 16) // 2
+            center_feature_start += 3
             idx_dict["membrane"] = np.concatenate(
                 (idx_dict["membrane"][:, :3],
-                idx_dict["membrane"][:, center_feature_start:center_feature_start+10]), axis=1
+                idx_dict["membrane"][:, center_feature_start:center_feature_start+16]), axis=1
+            )
+        else:
+            # center_feature_start = (idx_dict["membrane"][:, 3:].shape[1] - 16) // 2
+            # center_feature_start += 3
+            center_feature_start = 3 # this will run through all start indices and average the results
+            idx_dict["membrane"] = np.concatenate(
+                (idx_dict["membrane"][:, :3],
+                idx_dict["membrane"][:, center_feature_start:]), axis=1
             )
         idx_dict = convert_to_torch(idx_dict)
         overwrite_cache_flag = not self.visited_flags[idx] and self.force_recompute
@@ -220,7 +230,7 @@ class MemSegDiffusionNetDataset(Dataset):
             The length of the parameters of the dataset.
         """
         if self.shuffle:
-            return 10
+            return 16
         return self.part_verts[0].shape[1] - 3
 
     # def load_data(self) -> None: #TODO: Remove function
@@ -341,7 +351,6 @@ class MemSegDiffusionNetDataset(Dataset):
                 gt_classes = np.zeros(1)
                 self.allpos = True
 
-
             gt_mask = self._get_GT_mask(gt_pos, gt_classes)
             gt_pos = gt_pos[gt_mask]
                 
@@ -362,7 +371,6 @@ class MemSegDiffusionNetDataset(Dataset):
 
             distances[distances > 10] = 10
             distances[mask] = 10.05
-
             points[:, :3] /= self.max_tomo_shape
             points[:, :3] *= self.process_pixel_size
             gt_pos /= self.max_tomo_shape
@@ -376,10 +384,6 @@ class MemSegDiffusionNetDataset(Dataset):
             self.tomo_files.append(tomo_file)
             if self.overfit:
                 break
-
-
-
-
 
         
 
@@ -497,7 +501,6 @@ class MemSegDiffusionNetDataset(Dataset):
 
         verts = idx_dict["membrane"][:, :3] 
         features = idx_dict["membrane"][:, 3:]
-        
         feature_len = 10
         if self.diffusion_operator_params["random_sample_thickness"]:
             start_sample = np.random.randint(0, features.shape[1] - feature_len)

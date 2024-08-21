@@ -316,6 +316,9 @@ def train(
     C_width: int = Option(  # noqa: B008
         16, help="Width of the convolution."
     ),
+    conv_width: int = Option(  # noqa: B008
+        16, help="Width of the convolution."
+    ),
     dropout: bool = Option(  # noqa: B008
         False, help="Should dropout be used?"
     ),
@@ -386,6 +389,7 @@ def train(
         use_b6f=use_b6f,
         N_block=N_block,
         C_width=C_width,
+        conv_width=conv_width,
         dropout=dropout,
         with_gradient_features=with_gradient_features,
         with_gradient_rotations=with_gradient_rotations,
@@ -429,6 +433,15 @@ def predict(
     force_recompute_partitioning: bool = Option(  # noqa: B008
         False, help="Should the partitioning be recomputed?"
     ),
+    N_block: int = Option(  # noqa: B008
+        4, help="Number of blocks."
+    ),
+    C_width: int = Option(  # noqa: B008
+        64, help="Width of the convolution."
+    ),
+    conv_width: int = Option(  # noqa: B008
+        16, help="Width of the convolution."
+    ),
     k_eig: int = Option(  # noqa: B008
         128, help="Number of eigenvectors."
     ),
@@ -448,7 +461,8 @@ def predict(
         9.0, help="Score threshold for the mean shift."
     ),
     mean_shift_device: str = Option(  # noqa: B008
-        "cuda:0", help="Device to use for the mean shift."
+        # "cuda:0", help="Device to use for the mean shift."
+        "cpu", help="Device to use for the mean shift."
     ),
 ):
     """Predict the output of the trained model on the given data.
@@ -467,6 +481,9 @@ def predict(
         process_pixel_size=process_pixel_size,
         force_recompute_partitioning=force_recompute_partitioning,
         k_eig=k_eig,
+        N_block=N_block,
+        C_width=C_width,
+        conv_width=conv_width,
         mean_shift_output=mean_shift_output,
         mean_shift_bandwidth=mean_shift_bandwidth,
         mean_shift_max_iter=mean_shift_max_iter,
@@ -552,7 +569,7 @@ def initialize_points(point_io, point_coordinates,):
     # add the data to the viewer
     point_io.surface_picker.points_layer.data = point_coordinates
     point_io.surface_picker.points_layer.features = features_table
-    point_io.surface_picker.points_layer.size = np.array([10] * point_coordinates.shape[0])
+    point_io.surface_picker.points_layer.size = np.array([3] * point_coordinates.shape[0])
 
     point_io.surface_picker.normal_vectors_layer.data = normal_data
     point_io.surface_picker.up_vectors_layer.data = up_data
@@ -580,7 +597,7 @@ def surforama(
     from surforama.app import QtSurforama
     import numpy as np
     from matplotlib.pyplot import get_cmap
-    from membrain_pick.dataloading.data_utils import load_mesh_from_hdf5
+    from membrain_pick.dataloading.data_utils import load_mesh_from_hdf5, get_csv_data
     from membrain_seg.segmentation.dataloading.data_utils import load_tomogram
     from membrain_pick.scalar_selection import ScalarSelectionWidget
 
@@ -607,11 +624,14 @@ def surforama(
             'normal': (1, 0, 0),
             'thickness': 1,
         }
+        # do not show by default
         volume_layer = viewer.add_image(tomogram,
                                         name="tomogram",
                                         depiction="plane",
                                         blending="translucent",
-                                        plane=plane_properties,)
+                                        plane=plane_properties,
+                                        visible=False,
+                                        )
     pixel_size = None
     if "pixel_size" in mesh_data.keys():
         pixel_size = mesh_data["pixel_size"]

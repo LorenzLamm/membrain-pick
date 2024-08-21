@@ -16,6 +16,7 @@ class DiffusionNetModule(pl.LightningModule):
                  C_out=1, 
                  C_width=16, 
                  N_block=6, 
+                 conv_width=32,
                  mlp_hidden_dims=None, 
                  mean_shift_output=False,
                  mean_shift_bandwidth=7.,
@@ -38,6 +39,7 @@ class DiffusionNetModule(pl.LightningModule):
         self.model = DiffusionNet(C_in=C_in, 
                                   C_out=C_out, 
                                   C_width=C_width, 
+                                  conv_width=conv_width,
                                   N_block=N_block, 
                                   mlp_hidden_dims=mlp_hidden_dims, 
                                   dropout=dropout, 
@@ -76,7 +78,6 @@ class DiffusionNetModule(pl.LightningModule):
         features, mass, L, evals, evecs, gradX, gradY, faces, verts_orig = unpack_batch(batch)
         if features is None:
             return None
-
         out = {
             "mse": self.model(features, mass, L, evals, evecs, gradX, gradY, faces)
         }
@@ -131,6 +132,7 @@ class DiffusionNetModule(pl.LightningModule):
         # Log training loss
         self.total_train_loss += loss.detach()
         self.train_batches += 1
+        print(f"Training loss: {loss}")
         return loss
 
     def validation_step(self, batch, batch_idx):

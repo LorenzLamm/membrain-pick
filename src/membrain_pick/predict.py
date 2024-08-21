@@ -93,13 +93,18 @@ def predict(
         force_recompute_partitioning: bool = False,
         k_eig: int = 128,
 
+        N_block: int = 4,
+        C_width: int = 64,
+        conv_width: int = 32,
+
         # Mean shift parameters
         mean_shift_output: bool = False,
         mean_shift_bandwidth: float = 7.,
         mean_shift_max_iter: int = 150,
         mean_shift_margin: float = 0.,
         mean_shift_score_threshold: float = 9.0,
-        mean_shift_device: str = "cuda:0",
+        # mean_shift_device: str = "cuda:0",
+        mean_shift_device: str = "cpu",
 
 ):
     """Predict the output of the trained model on the given data.
@@ -136,9 +141,11 @@ def predict(
                                                     map_location=device,
                                                     strict=False,
                                                     dropout=False,
-                                                    N_block=4,
-                                                    C_width=64,
-                                                    C_in=10,
+                                                    N_block=N_block,
+                                                    C_width=C_width,
+                                                    conv_width=conv_width,
+                                                    # C_in=10,
+                                                    C_in=16,
                                                     one_D_conv_first=True
                                                     )
     model.to(device)
@@ -160,8 +167,19 @@ def predict(
     }
 
     for i, batch in tqdm(enumerate(test_loader)):
-        with torch.no_grad():
-            output = model(batch)
+        all_diffusion_feature = batch["diffusion_inputs"]["features"].clone()
+
+        outputs = []
+        for i in range(all_diffusion_feature.shape[1] - 15):
+            batch["diffusion_inputs"]["features"] = all_diffusion_feature[:, i:i+16]
+            with torch.no_grad():
+                output = model(batch)
+            outputs.append(output["mse"].squeeze().detach().cpu().numpy())
+        def aggregate_outputs(outputs):
+            mse_agg = np.stack(outputs, axis=1)
+            mse_agg = np.min(mse_agg, axis=1)
+            return {"mse": mse_agg}
+        output = aggregate_outputs(outputs)
         vert_weights = batch["vert_weights"]
         cur_mb_nr = batch["mb_idx"]
         mb_token = batch["mb_token"]
@@ -207,7 +225,7 @@ def predict(
         prev_tomo_file = tomo_file
         
         cur_mb_data["verts"].append(batch["verts_orig"].detach().cpu().numpy())
-        cur_mb_data["scores"].append(output["mse"].squeeze().detach().cpu().numpy())
+        cur_mb_data["scores"].append(output["mse"].squeeze())
         cur_mb_data["labels"].append(batch["label"].detach().cpu().numpy())
         cur_mb_data["features"].append(batch["membrane"][:, 3:].detach().cpu().numpy())
         cur_mb_data["weights"].append(vert_weights.detach().cpu().numpy())
