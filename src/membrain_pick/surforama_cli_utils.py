@@ -167,18 +167,6 @@ def get_point_colors(volume, points):
         return normalized_values
 
 def display_surforama_without_widget(viewer, points,faces, mesh_data):
-    if "scores" in mesh_data.keys():
-        scores = mesh_data["scores"]
-        normalized_scores = scores / 10.
-        normalized_scores[normalized_scores < 0] = 0
-        normalized_scores[normalized_scores > 1] = 1
-        normalized_scores = 1 - normalized_scores
-        cmap = get_cmap('RdBu') 
-        colors = cmap(normalized_scores)[:, :3]  # Get RGB values and discard the alpha channel
-        surface_layer = viewer.add_surface(
-            (points, faces), vertex_colors=colors, name="Scores", shading="none"
-        )
-
     tomo_data = viewer.layers["tomogram"].data
     surforama_values = get_point_colors(tomo_data, points)
     surface_layer_proj = viewer.add_surface(
