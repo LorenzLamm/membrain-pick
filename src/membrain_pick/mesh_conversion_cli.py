@@ -594,6 +594,7 @@ def surforama(
             surforama_widget = initialize_surforama_widget(points, faces, volume_layer, viewer)
             display_cluster_centers(viewer, mesh_data, pixel_size, surforama_widget)
         else:
+            display_surforama_without_widget(viewer, points, faces, mesh_data)
             display_cluster_centers_as_points(viewer, mesh_data, pixel_size)
 
         if h5_nr == 0:

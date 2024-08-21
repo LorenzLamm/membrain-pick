@@ -1,5 +1,6 @@
 
 import numpy as np
+from scipy.ndimage import map_coordinates
 from matplotlib.pyplot import get_cmap
 from membrain_seg.segmentation.dataloading.data_utils import load_tomogram
 from surforama.app import QtSurforama
@@ -153,3 +154,41 @@ def display_input_normal_values(viewer, mesh_data, points, faces):
         viewer.window.add_dock_widget(
             scalar_selection_widget, area="right", name="Scalar Selection"
         )
+
+
+def get_point_colors(volume, points):
+        point_values = map_coordinates(
+            volume, points.T, order=1, mode="nearest"
+        )
+
+        normalized_values = (point_values - point_values.min()) / (
+            point_values.max() - point_values.min() + np.finfo(float).eps
+        )
+        return normalized_values
+
+def display_surforama_without_widget(viewer, points,faces, mesh_data):
+    if "scores" in mesh_data.keys():
+        scores = mesh_data["scores"]
+        normalized_scores = scores / 10.
+        normalized_scores[normalized_scores < 0] = 0
+        normalized_scores[normalized_scores > 1] = 1
+        normalized_scores = 1 - normalized_scores
+        cmap = get_cmap('RdBu') 
+        colors = cmap(normalized_scores)[:, :3]  # Get RGB values and discard the alpha channel
+        surface_layer = viewer.add_surface(
+            (points, faces), vertex_colors=colors, name="Scores", shading="none"
+        )
+
+    tomo_data = viewer.layers["tomogram"].data
+    surforama_values = get_point_colors(tomo_data, points)
+    surface_layer_proj = viewer.add_surface(
+        (points, faces), name="Projections", shading="none", vertex_colors=surforama_values
+    )
+
+    # volume_layer = display_tomo(viewer, mesh_data, tomogram_path)
+    # pixel_size = get_pixel_size(mesh_data, pixel_size)
+    # points, faces = get_points_and_faces(mesh_data, pixel_size)
+    # display_scores(viewer, mesh_data, points, faces)
+    # display_cluster_centers_as_points(viewer, mesh_data, pixel_size)
+    # display_input_normal_values(viewer, mesh_data, points, faces)
+    # return volume_layer
