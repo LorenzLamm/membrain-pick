@@ -33,6 +33,7 @@ def train(
     # Model parameters
     N_block: int = 6,
     C_width: int = 16,
+    conv_width: int = 16,
     dropout: bool = False,
     with_gradient_features: bool = True,
     with_gradient_rotations: bool = True,
@@ -79,21 +80,12 @@ def train(
 
     )
     data_module.setup()
-    # data_module.train_dataset.test_loading(out_dir="./test_loading/", idx=0, times=10)
-    # data_module.train_dataset.test_loading(out_dir="./test_loading/", idx=1, times=10)
-    # data_module.train_dataset.test_loading(out_dir="./test_loading/", idx=2, times=10)
-    # data_module.train_dataset.test_loading(out_dir="./test_loading/", idx=3, times=10)
-    # data_module.train_dataset.test_loading(out_dir="./test_loading/", idx=4, times=10)
-    # data_module.train_dataset.test_loading(out_dir="./test_loading/", idx=5, times=10)
-    # data_module.train_dataset.test_loading(out_dir="./test_loading/", idx=15, times=10)
-    # data_module.train_dataset.test_loading(out_dir="./test_loading/", idx=25, times=10)
-    # data_module.train_dataset.test_loading(out_dir="./test_loading/", idx=50, times=10)
-    # exit()
 
     model = DiffusionNetModule(
         C_in=data_module.parameter_len,
         C_out=1,
         C_width=C_width,
+        conv_width=conv_width,
         N_block=N_block,
         mean_shift_output=mean_shift_output,
         mean_shift_bandwidth=mean_shift_bandwidth,
