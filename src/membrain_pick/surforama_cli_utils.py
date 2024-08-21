@@ -201,10 +201,10 @@ def display_surforama_without_widget(viewer, points,faces, value_range=None):
     tomo_data = viewer.layers["tomogram"].data
     surforama_values = get_point_colors(tomo_data, points)
     surforama_values, value_range = normalize_surface_values(surforama_values, value_range)
-    normalized_values = 1 - normalized_values
+    surforama_values = 1 - surforama_values
     # get black and white color map
     cmap = get_cmap('Greys') 
-    colors = cmap(normalized_values)[:, :3]  # Get RGB values and discard the alpha channel
+    colors = cmap(surforama_values)[:, :3]  # Get RGB values and discard the alpha channel
     surface_layer_proj = viewer.add_surface(
         (points, faces), name="Projections", shading="none", vertex_colors=colors
     )
