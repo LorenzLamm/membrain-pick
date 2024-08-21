@@ -120,6 +120,13 @@ def display_cluster_centers(viewer, mesh_data, pixel_size, surforama_widget):
         )
         surforama_widget.picking_widget.enabled = False
 
+def display_cluster_centers_as_points(viewer, mesh_data, pixel_size):
+    if "cluster_centers" in mesh_data.keys():
+        cluster_centers = mesh_data["cluster_centers"] / pixel_size
+        cluster_centers = np.stack(cluster_centers[:, [2, 1, 0]])
+        viewer.add_points(cluster_centers, name="Cluster Centers", size=5, symbol="cross")
+    
+
 def initialize_surforama_widget(points, faces, volume_layer, viewer):
     surface_layer_surf = viewer.add_surface(
         (points, faces), name="Surfogram", shading="none"
