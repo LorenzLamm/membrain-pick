@@ -166,11 +166,13 @@ def get_point_colors(volume, points):
         )
         return normalized_values
 
-def display_surforama_without_widget(viewer, points,faces, mesh_data):
+def display_surforama_without_widget(viewer, points,faces, value_range=None):
     tomo_data = viewer.layers["tomogram"].data
     surforama_values = get_point_colors(tomo_data, points)
-    normalized_values = (surforama_values - surforama_values.min()) / (
-        surforama_values.max() - surforama_values.min() + np.finfo(float).eps
+    if value_range is None:
+        value_range = (surface_values.mean() - 2 * surface_values.std(), surface_values.mean() + 2 * surface_values.std())
+    normalized_values = (surforama_values - value_range[0]) / (
+        value_range[1] - value_range[0] + np.finfo(float).eps
     )
     normalized_values = 1 - normalized_values
     # get black and white color map
@@ -179,6 +181,7 @@ def display_surforama_without_widget(viewer, points,faces, mesh_data):
     surface_layer_proj = viewer.add_surface(
         (points, faces), name="Projections", shading="none", vertex_colors=colors
     )
+    return value_range
 
     # volume_layer = display_tomo(viewer, mesh_data, tomogram_path)
     # pixel_size = get_pixel_size(mesh_data, pixel_size)
