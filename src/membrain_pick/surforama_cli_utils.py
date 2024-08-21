@@ -125,7 +125,7 @@ def display_cluster_centers_as_points(viewer, mesh_data, pixel_size):
     if "cluster_centers" in mesh_data.keys():
         cluster_centers = mesh_data["cluster_centers"] / pixel_size
         cluster_centers = np.stack(cluster_centers[:, [2, 1, 0]])
-        points = viewer.add_points(cluster_centers, name="Cluster Centers", size=3, face_color="magenta")
+        points = viewer.add_points(cluster_centers, name="Cluster Centers", size=5, face_color="magenta")
         points.shading = "spherical"
 
     
