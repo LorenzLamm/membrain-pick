@@ -607,33 +607,6 @@ def surforama(
     mesh_data = load_mesh_from_hdf5(h5_path)
 
 
-    csv_points = get_csv_data("/scicore/home/engel0006/GROUP/pool-engel/Lorenz/MemBrain-pick/evaluations/MemBrain_v1/Tomo0038_T38S6M2_1_clusters.csv") 
-    csv_points /= 14.08
-    csv_points = np.stack(csv_points[:, [2, 1, 0]])
-    # add the data to the viewer
-    viewer.add_points(
-        csv_points,
-        name="Good",
-        size=3,
-        edge_color="blue",
-        face_color="blue",
-    )
-
-    csv_points_scores = get_csv_data("/scicore/home/engel0006/GROUP/pool-engel/Lorenz/MemBrain-pick/evaluations/MemBrain_v1/Tomo0038_T38S6M2_1.csv")
-    print(csv_points_scores.shape)
-    csv_points_scores_coords = csv_points_scores[:, :3]
-    csv_points_scores_coords /= 14.08
-    csv_points_scores_coords = np.stack(csv_points_scores_coords[:, [2, 1, 0]])
-    colors = csv_points_scores[:, 3] / 10.
-    # add to the viewer
-    viewer.add_points(
-        csv_points_scores_coords,
-        name="Scores",
-        size=3,
-        edge_color=colors,
-        face_color=colors,
-    )
-
     if "tomo_file" in mesh_data.keys() and tomogram_path == "":
         tomogram_path = mesh_data["tomo_file"]
         if isinstance(tomogram_path, bytes):
