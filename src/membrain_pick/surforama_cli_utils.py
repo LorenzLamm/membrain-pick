@@ -31,7 +31,7 @@ def display_tomo(viewer, mesh_data, tomogram_path):
         tomogram = load_tomogram(tomogram_path)
         pixel_size = tomogram.voxel_size.x
         tomogram = tomogram.data
-        tomogram = normalize_tomo(tomogram)
+        # tomogram = normalize_tomo(tomogram)
         tomogram = np.transpose(tomogram, (2, 1, 0))
         slice_number = tomogram.shape[0] // 2
         plane_properties = {
@@ -200,7 +200,7 @@ def normalize_surface_values(surface_values, value_range=None):
 def display_surforama_without_widget(viewer, points,faces, value_range=None):
     tomo_data = viewer.layers["tomogram"].data
     surforama_values = get_point_colors(tomo_data, points)
-    surforama_values, value_range = normalize_surface_values(surforama_values, value_range)
+    # surforama_values, value_range = normalize_surface_values(surforama_values, value_range)
     surforama_values = 1 - surforama_values
     # get black and white color map
     cmap = get_cmap('Greys') 
