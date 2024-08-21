@@ -172,6 +172,7 @@ def display_surforama_without_widget(viewer, points,faces, mesh_data):
     normalized_values = (surforama_values - surforama_values.min()) / (
         surforama_values.max() - surforama_values.min() + np.finfo(float).eps
     )
+    normalized_values = 1 - normalized_values
     # get black and white color map
     cmap = get_cmap('Greys') 
     colors = cmap(normalized_values)[:, :3]  # Get RGB values and discard the alpha channel
