@@ -561,7 +561,7 @@ def surforama(
     from membrain_seg.segmentation.dataloading.data_utils import load_tomogram
     from membrain_pick.scalar_selection import ScalarSelectionWidget
 
-    from surforama_cli_utils import (
+    from membrain_pick.surforama_cli_utils import (
             display_tomo,
             get_pixel_size,
             get_points_and_faces,
