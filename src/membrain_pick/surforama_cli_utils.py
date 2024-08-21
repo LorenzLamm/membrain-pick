@@ -171,7 +171,6 @@ def display_surforama_without_widget(viewer, points,faces, value_range=None):
     surforama_values = get_point_colors(tomo_data, points)
     if value_range is None:
         value_range = (surface_values.mean() - 2 * surface_values.std(), surface_values.mean() + 2 * surface_values.std())
-    print(value_range)
     normalized_values = (surforama_values - value_range[0]) / (
         value_range[1] - value_range[0] + np.finfo(float).eps
     )
