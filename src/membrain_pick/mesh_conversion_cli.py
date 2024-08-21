@@ -569,6 +569,7 @@ def surforama(
             display_cluster_centers,
             display_cluster_centers_as_points,
             initialize_surforama_widget,
+            display_surforama_without_widget,
             display_input_normal_values
         )
 
