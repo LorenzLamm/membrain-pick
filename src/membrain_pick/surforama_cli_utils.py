@@ -181,6 +181,7 @@ def display_surforama_without_widget(viewer, points,faces, value_range=None):
         #     surforama_values.mean() - cutoff_std * surforama_values.std(), 
         #     surforama_values.mean() + cutoff_std * surforama_values.std()
         #     )
+    print("Normalized value range: ", value_range)
     normalized_values = (surforama_values - value_range[0]) / (
         value_range[1] - value_range[0] + np.finfo(float).eps
     )
