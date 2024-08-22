@@ -551,6 +551,10 @@ def surforama(
     tomogram_path: str = Option(  # noqa: B008
         default="", help="Path to the tomogram to be projected", 
     ),
+    return_viewer: bool = Option(  # noqa: B008
+        False, help="Should the viewer be returned?"
+    ),
+
 ):
     import os
     import napari
@@ -601,8 +605,9 @@ def surforama(
 
         if h5_nr == 0:
             display_input_normal_values(viewer, mesh_data, points, faces)
+    if return_viewer:
+        return viewer
     napari.run()
-    return viewer
 
 
 @cli.command(name="tomotwin_extract", no_args_is_help=True)
