@@ -602,6 +602,7 @@ def surforama(
         if h5_nr == 0:
             display_input_normal_values(viewer, mesh_data, points, faces)
     napari.run()
+    return viewer
 
 
 @cli.command(name="tomotwin_extract", no_args_is_help=True)
