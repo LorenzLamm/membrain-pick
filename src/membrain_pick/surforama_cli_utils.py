@@ -8,7 +8,7 @@ from membrain_pick.scalar_selection import ScalarSelectionWidget
 
 def normalize_tomo(tomogram):
     # cut off percentile from 10 to 90
-    cutoff_pct = 0.0001
+    cutoff_pct = 0.001
     value_range = (
         np.percentile(tomogram, cutoff_pct * 100),
         np.percentile(tomogram, (1 - cutoff_pct) * 100),
