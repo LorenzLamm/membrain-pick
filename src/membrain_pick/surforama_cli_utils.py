@@ -184,7 +184,7 @@ def get_point_colors(volume, points):
 def normalize_surface_values(surface_values, value_range=None):
     # cut off percentile from 10 to 90
     if value_range is None:
-        cutoff_pct = 0.05
+        cutoff_pct = 0.001
         value_range = (
             np.percentile(surface_values, cutoff_pct * 100),
             np.percentile(surface_values, (1 - cutoff_pct) * 100),
@@ -200,7 +200,7 @@ def normalize_surface_values(surface_values, value_range=None):
 def display_surforama_without_widget(viewer, points,faces, value_range=None):
     tomo_data = viewer.layers["tomogram"].data
     surforama_values = get_point_colors(tomo_data, points)
-    # surforama_values, value_range = normalize_surface_values(surforama_values, value_range)
+    surforama_values, value_range = normalize_surface_values(surforama_values, value_range)
     surforama_values = 1 - surforama_values
     # get black and white color map
     cmap = get_cmap('Greys') 
