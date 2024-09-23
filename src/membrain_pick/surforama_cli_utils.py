@@ -174,7 +174,7 @@ def initialize_surforama_widget(points, faces, volume_layer, viewer, normal_offs
         volume_layer=volume_layer,
     )
     if normal_offset != 0.0:
-        surforama_widget.update_colors_based_on_sampling(value=normal_offset)
+        surforama_widget.slide_points(value=normal_offset * 10.0)
     viewer.window.add_dock_widget(surforama_widget, area="right", name="Surforama")
     return surforama_widget
 
