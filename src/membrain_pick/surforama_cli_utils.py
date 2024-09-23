@@ -99,6 +99,7 @@ from surforama.constants import (
 def initialize_points(
     point_io,
     point_coordinates,
+    point_size=5.0,
 ):
     import numpy as np
 
@@ -119,7 +120,7 @@ def initialize_points(
     point_io.surface_picker.points_layer.data = point_coordinates
     point_io.surface_picker.points_layer.features = features_table
     point_io.surface_picker.points_layer.size = np.array(
-        [3] * point_coordinates.shape[0]
+        [point_size] * point_coordinates.shape[0]
     )
 
     point_io.surface_picker.normal_vectors_layer.data = normal_data
@@ -133,7 +134,9 @@ def initialize_points(
     point_io.surface_picker.normal_vectors = normal_data[:, 1, :]
 
 
-def display_cluster_centers(viewer, mesh_data, pixel_size, surforama_widget):
+def display_cluster_centers(
+    viewer, mesh_data, pixel_size, surforama_widget, point_size=5.0
+):
     if "cluster_centers" in mesh_data.keys():
         cluster_centers = mesh_data["cluster_centers"] / pixel_size
         cluster_centers = np.stack(cluster_centers[:, [2, 1, 0]])
@@ -143,21 +146,25 @@ def display_cluster_centers(viewer, mesh_data, pixel_size, surforama_widget):
         initialize_points(
             point_io=point_io,
             point_coordinates=cluster_centers,
+            point_size=point_size,
         )
         surforama_widget.picking_widget.enabled = False
 
 
-def display_cluster_centers_as_points(viewer, mesh_data, pixel_size):
+def display_cluster_centers_as_points(viewer, mesh_data, pixel_size, point_size=5.0):
     if "cluster_centers" in mesh_data.keys():
         cluster_centers = mesh_data["cluster_centers"] / pixel_size
         cluster_centers = np.stack(cluster_centers[:, [2, 1, 0]])
         points = viewer.add_points(
-            cluster_centers, name="Cluster Centers", size=5, face_color="magenta"
+            cluster_centers,
+            name="Cluster Centers",
+            size=point_size,
+            face_color="magenta",
         )
         points.shading = "spherical"
 
 
-def initialize_surforama_widget(points, faces, volume_layer, viewer):
+def initialize_surforama_widget(points, faces, volume_layer, viewer, normal_offset=0.0):
     surface_layer_surf = viewer.add_surface(
         (points, faces), name="Surfogram", shading="none"
     )
@@ -166,6 +173,8 @@ def initialize_surforama_widget(points, faces, volume_layer, viewer):
         surface_layer=surface_layer_surf,
         volume_layer=volume_layer,
     )
+    if normal_offset != 0.0:
+        surforama_widget.update_colors_based_on_sampling(value=normal_offset)
     viewer.window.add_dock_widget(surforama_widget, area="right", name="Surforama")
     return surforama_widget
 
@@ -211,9 +220,20 @@ def normalize_surface_values(surface_values, value_range=None):
     return normalized_values, value_range
 
 
-def display_surforama_without_widget(viewer, points, faces, value_range=None):
+def display_surforama_without_widget(
+    viewer, points, faces, value_range=None, normal_offset=0.0
+):
     tomo_data = viewer.layers["tomogram"].data
-    surforama_values = get_point_colors(tomo_data, points)
+
+    if normal_offset != 0.0:
+        import trimesh
+
+        mesh = trimesh.Trimesh(vertices=point, faces=faces)
+        normals = mesh.vertex_normals
+        color_points = points + normal_offset * normals
+    else:
+        color_points = points
+    surforama_values = get_point_colors(tomo_data, color_points)
     surforama_values, value_range = normalize_surface_values(
         surforama_values, value_range
     )

@@ -516,6 +516,10 @@ def surforama(
         default="",
         help="Path to the tomogram to be projected",
     ),
+    normal_offset: float = Option(  # noqa: B008
+        0.0, help="Offset for the normal vectors."
+    ),
+    point_size: float = Option(5.0, help="Size of the points."),  # noqa: B008
     return_viewer: bool = Option(  # noqa: B008
         False, help="Should the viewer be returned?"
     ),
@@ -564,14 +568,18 @@ def surforama(
 
         if h5_nr == 0:
             surforama_widget = initialize_surforama_widget(
-                points, faces, volume_layer, viewer
+                points, faces, volume_layer, viewer, normal_offset=normal_offset
             )
-            display_cluster_centers(viewer, mesh_data, pixel_size, surforama_widget)
+            display_cluster_centers(
+                viewer, mesh_data, pixel_size, surforama_widget, point_size=point_size
+            )
         else:
             value_range = display_surforama_without_widget(
-                viewer, points, faces, value_range
+                viewer, points, faces, value_range, normal_offset=normal_offset
             )
-            display_cluster_centers_as_points(viewer, mesh_data, pixel_size)
+            display_cluster_centers_as_points(
+                viewer, mesh_data, pixel_size, point_size=point_size
+            )
 
         if h5_nr == 0:
             display_input_normal_values(viewer, mesh_data, points, faces)
