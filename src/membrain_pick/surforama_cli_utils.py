@@ -228,7 +228,7 @@ def display_surforama_without_widget(
     if normal_offset != 0.0:
         import trimesh
 
-        mesh = trimesh.Trimesh(vertices=point, faces=faces)
+        mesh = trimesh.Trimesh(vertices=points, faces=faces)
         normals = mesh.vertex_normals
         color_points = points + normal_offset * normals
     else:
