@@ -84,8 +84,8 @@ def convert_single_file(
         help="Pixel size of the output tomogram. Only used if match_size_flag is True.",
     ),
     step_numbers: List[int] = Option(  # noqa: B008
-        (-6, 7),
-        help="Step numbers for the normal vectors. Default: (-6, 7)",
+        (-10, 10),
+        help="Step numbers for the normal vectors. Default: (-10, 10)",
     ),
     step_size: float = Option(  # noqa: B008
         2.5, help="Step size for the normal vectors. Default: 2.5"
@@ -157,8 +157,8 @@ def convert_mb_folder(
         help="Pixel size of the output tomogram. Only used if match_size_flag is True.",
     ),
     step_numbers: List[int] = Option(  # noqa: B008
-        (-6, 7),
-        help="Step numbers for the normal vectors. Default: (-6, 7)",
+        (-10, 10),
+        help="Step numbers for the normal vectors. Default: (-10, 10)",
     ),
     step_size: float = Option(  # noqa: B008
         2.5, help="Step size for the normal vectors. Default: 2.5"
@@ -230,8 +230,8 @@ def convert_folder_structure(
         help="Pixel size of the output tomogram. Only used if match_size_flag is True.",
     ),
     step_numbers: List[int] = Option(  # noqa: B008
-        (-6, 7),
-        help="Step numbers for the normal vectors. Default: (-6, 7)",
+        (-10, 10),
+        help="Step numbers for the normal vectors. Default: (-10, 10)",
     ),
     step_size: float = Option(  # noqa: B008
         2.5, help="Step size for the normal vectors. Default: 2.5"
