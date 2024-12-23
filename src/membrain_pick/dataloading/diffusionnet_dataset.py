@@ -8,12 +8,25 @@ from torch.utils.data import Dataset
 from membrain_seg.segmentation.dataloading.data_utils import get_csv_data
 
 from scipy.spatial import KDTree
-from membrain_pick.dataloading.pointcloud_augmentations import get_test_transforms, get_training_transforms
-from membrain_pick.dataloading.mesh_partitioning import precompute_partitioning, compute_nearest_distances
-from membrain_pick.dataloading.data_utils import load_mesh_from_hdf5, convert_to_torch, read_star_file
-from membrain_pick.optimization.plane_projection import project_points_to_nearest_hyperplane
+from membrain_pick.dataloading.pointcloud_augmentations import (
+    get_test_transforms,
+    get_training_transforms,
+)
+from membrain_pick.dataloading.mesh_partitioning import (
+    precompute_partitioning,
+    compute_nearest_distances,
+)
+from membrain_pick.dataloading.data_utils import (
+    load_mesh_from_hdf5,
+    convert_to_torch,
+    read_star_file,
+)
+from membrain_pick.optimization.plane_projection import (
+    project_points_to_nearest_hyperplane,
+)
 
 from membrain_pick.networks import diffusion_net
+
 
 class MemSegDiffusionNetDataset(Dataset):
     """
@@ -44,9 +57,8 @@ class MemSegDiffusionNetDataset(Dataset):
         k_eig: int = 128,
         shuffle: bool = True,
         test_mb=None,
-
         diffusion_operator_params: Dict = {
-            "k_eig": 128, # 128
+            "k_eig": 128,  # 128
             "use_precomputed_normals": True,
             "normalize_verts": False,
             "hks_features": False,
@@ -55,9 +67,7 @@ class MemSegDiffusionNetDataset(Dataset):
             "random_sample_thickness": False,
             "use_faces": True,
             "cache_dir": "./cache_dir/diffusion_operators",
-        }
-
-    
+        },
     ) -> None:
         """
         Constructs all the necessary attributes for the CryoETMemSegDataset object.
@@ -83,51 +93,67 @@ class MemSegDiffusionNetDataset(Dataset):
         self.shuffle = shuffle
 
         self.diffusion_operator_params["k_eig"] = k_eig
-        self.diffusion_operator_params["cache_dir"] = os.path.join(cache_dir, "diffusion_operators")
+        self.diffusion_operator_params["cache_dir"] = os.path.join(
+            cache_dir, "diffusion_operators"
+        )
         self.cache_dir = os.path.join(cache_dir, "mesh_partitioning")
 
-        self.max_tomo_shape = 500. # TODO: rename and hard-code everywhere
+        self.max_tomo_shape = 500.0  # TODO: rename and hard-code everywhere
         self.test_mb = test_mb
         self.initialize_data_paths()
         self.load_data()
 
         if self.load_only_sampled_points is not None:
             self._precompute_partitioning()
-        
+
         # self.augment_all = False
         self.transforms = (
-            get_training_transforms(tomo_shape_max=self.max_tomo_shape, 
-                                    pixel_size=self.process_pixel_size,
-                                    prob_to_one=self.aug_prob_to_one) if (self.train and self.augment_all) 
-                                    else get_test_transforms()
+            get_training_transforms(
+                tomo_shape_max=self.max_tomo_shape,
+                pixel_size=self.process_pixel_size,
+                prob_to_one=self.aug_prob_to_one,
+            )
+            if (self.train and self.augment_all)
+            else get_test_transforms()
         )
         if self.train:
-            self.kdtrees = [KDTree(mb[:, :3]) for mb in (self.membranes if self.load_only_sampled_points is None else self.part_verts)]
+            self.kdtrees = [
+                KDTree(mb[:, :3])
+                for mb in (
+                    self.membranes
+                    if self.load_only_sampled_points is None
+                    else self.part_verts
+                )
+            ]
         else:
             self.kdtrees = [None] * len(self)
         self.visited_flags = np.zeros(len(self), dtype=bool)
-
 
     def _precompute_partitioning(self) -> None:
         """
         Precomputes the partitioning of the mesh into smaller parts.
         """
         print("Precomputing partitioning of the mesh.")
-        self.part_verts, self.part_labels, self.part_faces, \
-            self.part_normals, self.part_mb_idx, self.part_gt_pos, \
-            self.part_vert_weights = precompute_partitioning(
-                    membranes=self.membranes,
-                    faces=self.faces,
-                    labels=self.labels,
-                    vert_normals=self.vert_normals,
-                    gt_pos=self.gt_pos,
-                    max_sampled_points=self.load_only_sampled_points,
-                    overfit=self.overfit,
-                    overfit_mb=self.overfit_mb,
-                    cache_dir=self.cache_dir,
-                    force_recompute=self.force_recompute
+        (
+            self.part_verts,
+            self.part_labels,
+            self.part_faces,
+            self.part_normals,
+            self.part_mb_idx,
+            self.part_gt_pos,
+            self.part_vert_weights,
+        ) = precompute_partitioning(
+            membranes=self.membranes,
+            faces=self.faces,
+            labels=self.labels,
+            vert_normals=self.vert_normals,
+            gt_pos=self.gt_pos,
+            max_sampled_points=self.load_only_sampled_points,
+            overfit=self.overfit,
+            overfit_mb=self.overfit_mb,
+            cache_dir=self.cache_dir,
+            force_recompute=self.force_recompute,
         )
-        
 
     def __getitem__(self, idx: int) -> Dict[str, np.ndarray]:
         """
@@ -143,7 +169,7 @@ class MemSegDiffusionNetDataset(Dataset):
         Dict[str, np.ndarray]
             A dictionary containing a membrane and its corresponding label.
         """
-        
+
         if self.load_only_sampled_points is not None:
             idx_dict = {
                 "membrane": self.part_verts[idx].copy(),
@@ -152,13 +178,14 @@ class MemSegDiffusionNetDataset(Dataset):
                 "normals": self.part_normals[idx],
                 "mb_idx": self.part_mb_idx[idx],
                 # "mb_token": os.path.basename(self.data_paths[self.part_mb_idx[idx]][0])[:-8],
-                "mb_token": os.path.basename(self.data_paths[self.part_mb_idx[idx]][0])[:-3],
+                "mb_token": os.path.basename(self.data_paths[self.part_mb_idx[idx]][0])[
+                    :-3
+                ],
                 "tomo_file": self.tomo_files[self.part_mb_idx[idx]],
                 "gt_pos": self.part_gt_pos[idx] * self.max_tomo_shape,
-                "vert_weights": self.part_vert_weights[idx]
+                "vert_weights": self.part_vert_weights[idx],
             }
-            
-            
+
             # mb_idx = idx // (self.membranes[0].shape[0] // self.load_only_sampled_points)
             # idx_dict = self.select_random_mb_area(mb_idx, idx, self.load_only_sampled_points)
         else:
@@ -171,41 +198,57 @@ class MemSegDiffusionNetDataset(Dataset):
                 "mb_token": os.path.basename(self.data_paths[idx][0])[:-8],
                 "tomo_file": self.tomo_files[idx],
                 "gt_pos": self.gt_pos[idx],
-                "vert_weights": np.ones(self.membranes[idx].shape[0])
+                "vert_weights": np.ones(self.membranes[idx].shape[0]),
             }
 
-        idx_dict = self.transforms(idx_dict, keys=["membrane"], mb_tree=self.kdtrees[idx])
+        idx_dict = self.transforms(
+            idx_dict, keys=["membrane"], mb_tree=self.kdtrees[idx]
+        )
         if self.shuffle and self.train:
             assert idx_dict["membrane"].shape[1] >= 16 + 3
             feature_channels = idx_dict["membrane"][:, 3:].shape[1] - 16
             idx_start_range = range(feature_channels)
             idx_start = np.random.choice(idx_start_range) + 3
             idx_dict["membrane"] = np.concatenate(
-                (idx_dict["membrane"][:, :3],
-                idx_dict["membrane"][:, idx_start:idx_start+16]), axis=1
+                (
+                    idx_dict["membrane"][:, :3],
+                    idx_dict["membrane"][:, idx_start : idx_start + 16],
+                ),
+                axis=1,
             )
         elif self.shuffle and not self.train:
             assert idx_dict["membrane"].shape[1] >= 16 + 3
             center_feature_start = (idx_dict["membrane"][:, 3:].shape[1] - 16) // 2
             center_feature_start += 3
             idx_dict["membrane"] = np.concatenate(
-                (idx_dict["membrane"][:, :3],
-                idx_dict["membrane"][:, center_feature_start:center_feature_start+16]), axis=1
+                (
+                    idx_dict["membrane"][:, :3],
+                    idx_dict["membrane"][
+                        :, center_feature_start : center_feature_start + 16
+                    ],
+                ),
+                axis=1,
             )
         else:
             # center_feature_start = (idx_dict["membrane"][:, 3:].shape[1] - 16) // 2
             # center_feature_start += 3
-            center_feature_start = 3 # this will run through all start indices and average the results
+            center_feature_start = (
+                3  # this will run through all start indices and average the results
+            )
             idx_dict["membrane"] = np.concatenate(
-                (idx_dict["membrane"][:, :3],
-                idx_dict["membrane"][:, center_feature_start:]), axis=1
+                (
+                    idx_dict["membrane"][:, :3],
+                    idx_dict["membrane"][:, center_feature_start:],
+                ),
+                axis=1,
             )
         idx_dict = convert_to_torch(idx_dict)
         overwrite_cache_flag = not self.visited_flags[idx] and self.force_recompute
-        idx_dict = self._convert_to_diffusion_input(idx_dict, overwrite_cache_flag=overwrite_cache_flag)
+        idx_dict = self._convert_to_diffusion_input(
+            idx_dict, overwrite_cache_flag=overwrite_cache_flag
+        )
         self.visited_flags[idx] = True
         return idx_dict
-    
 
     def __len__(self) -> int:
         """
@@ -219,7 +262,7 @@ class MemSegDiffusionNetDataset(Dataset):
         if self.load_only_sampled_points is not None:
             return len(self.part_verts)
         return len(self.membranes)
-    
+
     def get_parameter_len(self) -> int:
         """
         Returns the length of the parameters of the dataset.
@@ -262,7 +305,7 @@ class MemSegDiffusionNetDataset(Dataset):
     #             gt_pos = project_points_to_nearest_hyperplane(gt_pos, points[:, :3])
     #         else:
     #             gt_pos = np.zeros((1, 3))
-                
+
     #         faces = np.array(get_csv_data(entry[2]), dtype=int)
     #         vert_normals = np.array(get_csv_data(entry[3]), dtype=float)
 
@@ -321,25 +364,30 @@ class MemSegDiffusionNetDataset(Dataset):
             hdf5_path = entry[0]
             gt_path = entry[1]
 
-            
             mesh_data = load_mesh_from_hdf5(hdf5_path)
             points = mesh_data["points"]
             faces = mesh_data["faces"]
             vert_normals = mesh_data["normals"]
             normal_values = mesh_data["normal_values"]
-            tomo_file = "" if not "tomo_file" in mesh_data.keys() else mesh_data["tomo_file"]
+            tomo_file = (
+                "" if not "tomo_file" in mesh_data.keys() else mesh_data["tomo_file"]
+            )
 
             points = np.concatenate([points, normal_values], axis=1)
             if os.path.isfile(gt_path):
-                gt_data = read_star_file(gt_path) # pandas dataframe
+                gt_data = read_star_file(gt_path)  # pandas dataframe
                 # check size of gt_data
                 if gt_data.shape[0] == 0:
                     gt_pos = np.zeros((1, 3))
                     gt_classes = np.zeros(1)
                     self.allpos = True
                 else:
-                    gt_pos = gt_data[["rlnCoordinateX", "rlnCoordinateY", "rlnCoordinateZ"]].values
-                    assert "rlnCoordinateX" in gt_data.columns, "rlnCoordinateX not in columns"
+                    gt_pos = gt_data[
+                        ["rlnCoordinateX", "rlnCoordinateY", "rlnCoordinateZ"]
+                    ].values
+                    assert (
+                        "rlnCoordinateX" in gt_data.columns
+                    ), "rlnCoordinateX not in columns"
                     if "rlnClassNumber" in gt_data.columns:
                         gt_classes = gt_data["rlnClassNumber"].values
                     else:
@@ -353,7 +401,7 @@ class MemSegDiffusionNetDataset(Dataset):
 
             gt_mask = self._get_GT_mask(gt_pos, gt_classes)
             gt_pos = gt_pos[gt_mask]
-                
+
             points = points * self.input_pixel_size / self.process_pixel_size
             gt_pos = gt_pos * self.input_pixel_size / self.process_pixel_size
 
@@ -363,7 +411,7 @@ class MemSegDiffusionNetDataset(Dataset):
             _, nn_idcs_psii = compute_nearest_distances(gt_pos, points[:, :3])
             psii_normals = vert_normals[nn_idcs_psii]
 
-            nearest_PSII_pos = gt_pos[nn_idcs] + psii_normals[nn_idcs]*20
+            nearest_PSII_pos = gt_pos[nn_idcs] + psii_normals[nn_idcs] * 20
             connection_vectors = nearest_PSII_pos - (points[:, :3])
 
             angle_to_normal = np.einsum("ij,ij->i", connection_vectors, vert_normals)
@@ -385,8 +433,6 @@ class MemSegDiffusionNetDataset(Dataset):
             if self.overfit:
                 break
 
-        
-
     def _train_split(self) -> None:
         """
         Splits the dataset into training and validation sets.
@@ -397,13 +443,21 @@ class MemSegDiffusionNetDataset(Dataset):
             The percentage of the dataset to be used for training.
         """
         if self.train:
-            self.data_paths = self.data_paths[:int(len(self.data_paths) * self.train_pct)]
+            self.data_paths = self.data_paths[
+                : int(len(self.data_paths) * self.train_pct)
+            ]
         else:
-            self.data_paths = self.data_paths[int(len(self.data_paths) * self.train_pct):]
+            self.data_paths = self.data_paths[
+                int(len(self.data_paths) * self.train_pct) :
+            ]
 
     def initialize_data_paths(self) -> None:
         self.data_paths = []
-        candidate_files = (os.listdir(self.data_folder) if not self.is_single_mb else [self.data_folder])
+        candidate_files = (
+            os.listdir(self.data_folder)
+            if not self.is_single_mb
+            else [self.data_folder]
+        )
 
         # Find all .h5 files in the data folder
         for filename in candidate_files:
@@ -415,14 +469,15 @@ class MemSegDiffusionNetDataset(Dataset):
 
         # Find ground truth files in the form of .star files
         self.data_paths = [
-            (os.path.join(self.data_folder, filename), 
-             os.path.join(self.data_folder, filename[:-3] + ".star"),
-            ) for filename in self.data_paths
+            (
+                os.path.join(self.data_folder, filename),
+                os.path.join(self.data_folder, filename[:-3] + ".star"),
+            )
+            for filename in self.data_paths
         ]
 
         # Get current training split
         self._train_split()
-        
 
     # def initialize_csv_paths(self) -> None: #TODO: Remove function
     #     """
@@ -448,7 +503,7 @@ class MemSegDiffusionNetDataset(Dataset):
     #     if not self.is_single_mb:
     #         if not self.allpos:
     #             self.data_paths = [
-    #                 (os.path.join(self.csv_folder, filename), 
+    #                 (os.path.join(self.csv_folder, filename),
     #                 [os.path.join(self.csv_folder, filename[:-14] + "_psii_pos.csv") if self.use_psii else None,
     #                     os.path.join(self.csv_folder, filename[:-14] + "_b6f_pos.csv") if self.use_b6f else None,
     #                     os.path.join(self.csv_folder, filename[:-14] + "_uk_pos.csv") if self.use_uk else None],
@@ -458,13 +513,13 @@ class MemSegDiffusionNetDataset(Dataset):
     #             ]
     #         else:
     #             self.data_paths = [
-    #                 (os.path.join(self.csv_folder, filename), 
+    #                 (os.path.join(self.csv_folder, filename),
     #                 os.path.join(self.csv_folder, filename[:-14] + "_all_pos.csv"),
     #                 os.path.join(self.csv_folder, filename[:-14] + "_mesh_faces.csv"),
     #                 os.path.join(self.csv_folder, filename[:-14] + "_mesh_normals.csv"),)
     #                 for filename in self.data_paths
     #         ]
-    #     else:  
+    #     else:
     #         self.data_paths = [
     #             (filename,
     #              filename[:-14] + "_psii_pos.csv",
@@ -487,60 +542,63 @@ class MemSegDiffusionNetDataset(Dataset):
     #         overwrite_cache_flag = overwrite_cache_flag
     #     )
 
-        
-
-    def _convert_to_diffusion_input(self, 
-                             idx_dict, 
-                             overwrite_cache_flag=False):
-        
+    def _convert_to_diffusion_input(self, idx_dict, overwrite_cache_flag=False):
 
         faces = idx_dict["faces"]
         if not self.diffusion_operator_params["use_faces"]:
             faces = torch.zeros((0, 3))
         faces = faces.long()
 
-        verts = idx_dict["membrane"][:, :3] 
+        verts = idx_dict["membrane"][:, :3]
         features = idx_dict["membrane"][:, 3:]
         feature_len = 10
         if self.diffusion_operator_params["random_sample_thickness"]:
             start_sample = np.random.randint(0, features.shape[1] - feature_len)
-            features = features[:, start_sample:start_sample + feature_len]
-        
+            features = features[:, start_sample : start_sample + feature_len]
+
         verts_orig = verts.clone() * self.max_tomo_shape
         if self.diffusion_operator_params["normalize_verts"]:
-            verts = diffusion_net.geometry.normalize_positions(verts.unsqueeze(0)).squeeze(0)
+            verts = diffusion_net.geometry.normalize_positions(
+                verts.unsqueeze(0)
+            ).squeeze(0)
         else:
             verts = verts.contiguous()
             verts -= verts.mean()
-        # Get the geometric operators needed to evaluate DiffusionNet. This routine 
+        # Get the geometric operators needed to evaluate DiffusionNet. This routine
         # automatically populates a cache, precomputing only if needed.
         try:
-            _, mass, L, evals, evecs, gradX, gradY = \
+            _, mass, L, evals, evecs, gradX, gradY = (
                 diffusion_net.geometry.get_operators(
                     verts=verts,
                     faces=faces,
                     k_eig=self.diffusion_operator_params["k_eig"],
                     op_cache_dir=self.diffusion_operator_params["cache_dir"],
-                    normals=(idx_dict["normals"].float() if self.diffusion_operator_params["use_precomputed_normals"] else None),
-                    overwrite_cache=overwrite_cache_flag
+                    normals=(
+                        idx_dict["normals"].float()
+                        if self.diffusion_operator_params["use_precomputed_normals"]
+                        else None
+                    ),
+                    overwrite_cache=overwrite_cache_flag,
                 )
+            )
         except Exception as e:
             print(e)
             return idx_dict
-            
-        
+
         if self.diffusion_operator_params["augment_random_rotate"]:
             verts = diffusion_net.utils.random_rotate_points(verts)
-        
+
         if self.diffusion_operator_params["hks_features"]:
-            features_hks = diffusion_net.geometry.compute_hks_autoscale(evals, evecs, 16)
+            features_hks = diffusion_net.geometry.compute_hks_autoscale(
+                evals, evecs, 16
+            )
             features = torch.cat([features, features_hks], dim=1)
-        
+
         if self.diffusion_operator_params["aggregate_coordinates"]:
             features = torch.cat([verts, features], dim=1)
 
         # Convert all inputs to float32 before passing them to the model
-        features = features.float()  
+        features = features.float()
         mass = mass.float()
         L = L.float()
         evals = evals.float()
@@ -566,8 +624,6 @@ class MemSegDiffusionNetDataset(Dataset):
 
         return idx_dict
 
-
-
     def test_loading(self, out_dir, idx: int, times=1) -> None:
         """
         Tests the loading of a data-label pair.
@@ -577,7 +633,10 @@ class MemSegDiffusionNetDataset(Dataset):
         idx : int
             Index of the sample to be loaded.
         """
-        from membrain_pick.optimization.plane_projection import make_2D_projection_scatter_plot
+        from membrain_pick.optimization.plane_projection import (
+            make_2D_projection_scatter_plot,
+        )
+
         for k in range(times):
             print("Getting item %d for the %d-th time" % (idx, k))
             idx_dict = self.__getitem__(idx)
@@ -586,7 +645,7 @@ class MemSegDiffusionNetDataset(Dataset):
                 out_file=os.path.join(out_dir, "test%d_%d.png" % (idx, k)),
                 point_cloud=idx_dict["membrane"][:, :3][mask],
                 color=idx_dict["membrane"][:, 7][mask],
-                s=50
+                s=50,
             )
             # print(np.unique(idx_dict["label"]))
             # make_2D_projection_scatter_plot(
