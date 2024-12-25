@@ -1,8 +1,10 @@
-from time import time
 import numpy as np
+import os
+from subprocess import run
 
-from membrain_seg.segmentation.dataloading.data_utils import load_tomogram
-from membrain_pick.dataloading.data_utils import store_array_in_csv
+from membrain_seg.segmentation.dataloading.data_utils import (
+    store_tomogram,
+)
 
 import pyvista as pv
 import pyacvd
@@ -12,8 +14,56 @@ from skimage import measure
 from scipy.ndimage import map_coordinates
 
 
+import pyvista as pv
+import trimesh
+
+
+def imod_mesh_conversion(seg, temp_folder="./tmp_data"):
+    """
+    Convert a segmentation to a mesh using IMOD.
+
+    Parameters
+    ----------
+    seg : np.ndarray
+        The segmentation array.
+    temp_folder : str, optional
+        The temporary folder to store the mesh. Default is "./".
+    smoothing : int, optional
+        The number of smoothing iterations to apply to the mesh. Default is 1000.
+
+    Returns
+    -------
+    trimesh.Trimesh
+        The resulting mesh.
+    """
+    os.makedirs(temp_folder, exist_ok=True)
+
+    # define temporary files
+    temp_out = os.path.join(temp_folder, "tmp_seg.mrc")
+    temp_mod_file = os.path.join(temp_folder, "tomo_segmentation.mod")
+    mesh_path = os.path.join(temp_folder, "tmp_mesh.obj")
+
+    # Save the segmentation to a temporary file
+    store_tomogram(temp_out, seg)
+
+    # Run IMOD to convert the segmentation to a mesh
+    run(f"imodauto -h 0.1 {temp_out} {temp_mod_file}", shell=True)
+    run(f"imodmesh -s -f -C {temp_mod_file}", shell=True)
+    run(f"imod2obj {temp_mod_file} {mesh_path}", shell=True)
+
+    # Load the mesh
+    mesh = trimesh.load_mesh(mesh_path)
+
+    # delete the temporary files
+    os.remove(temp_out)
+    os.remove(temp_mod_file)
+    os.remove(mesh_path)
+
+    return mesh.vertices, mesh.faces
+
+
 def convert_seg_to_mesh(
-    seg: np.ndarray, smoothing: int, voxel_size: float = 1.0
+    seg: np.ndarray, smoothing: int, voxel_size: float = 1.0, imod_meshing=False
 ) -> pv.PolyData:
     """
     Convert a segmentation array to a mesh using marching cubes.
@@ -32,14 +82,19 @@ def convert_seg_to_mesh(
     pv.PolyData
         The resulting mesh.
     """
-    verts, faces, _, _ = measure.marching_cubes(
-        seg, 0.5, step_size=1.5, method="lewiner"
-    )
+    if imod_meshing:
+        verts, faces = imod_mesh_conversion(seg)
+    else:
+        verts, faces, _, _ = measure.marching_cubes(
+            seg, 0.5, step_size=1.5, method="lewiner"
+        )
     verts = verts * voxel_size
     all_col = np.ones((faces.shape[0], 1), dtype=int) * 3  # Prepend 3 for vtk format
     faces = np.concatenate((all_col, faces), axis=1)
     surf = pv.PolyData(verts, faces)
-    return surf.smooth(n_iter=smoothing)
+    surf = surf.smooth_taubin(n_iter=smoothing)
+    surf = surf.decimate(0.95)
+    return surf.smooth_taubin(n_iter=smoothing)
 
 
 def vectorized_cubicTex3DSimple(volTexture, pos, texSize):
@@ -171,18 +226,16 @@ def convert_seg_to_evenly_spaced_mesh(
     seg,
     smoothing=2000,
     barycentric_area=10,
-    was_rescaled=False,
-    input_pixel_size=14.08,  # TODO: remove
+    was_rescaled=False,  # TODO: remove
+    input_pixel_size=14.08,
+    imod_meshing=False,
 ):
     # Convert segmentation to mesh using marching cubes
     mesh = convert_seg_to_mesh(
         seg=seg,
         smoothing=smoothing,
+        imod_meshing=imod_meshing,
     )
-    mesh = mesh.decimate(0.5)
-
-    # pixel_factor = input_pixel_size / output_pixel_size #TODO:remove
-    # mesh.points = mesh.points * pixel_factor * 2 #TODO: remove
     if was_rescaled:
         mesh.points = mesh.points * 2  # rescale to original size
 
@@ -198,5 +251,6 @@ def convert_seg_to_evenly_spaced_mesh(
     remesh = clus.create_mesh()
 
     remesh.points /= input_pixel_size  # rescale back to original size
+    remesh = remesh.smooth_taubin(n_iter=smoothing // 100)
 
     return remesh

@@ -84,8 +84,8 @@ def convert_single_file(
         help="Pixel size of the output tomogram. Only used if match_size_flag is True.",
     ),
     step_numbers: List[int] = Option(  # noqa: B008
-        (-6, 7),
-        help="Step numbers for the normal vectors. Default: (-6, 7)",
+        (-10, 10),
+        help="Step numbers for the normal vectors. Default: (-10, 10)",
     ),
     step_size: float = Option(  # noqa: B008
         2.5, help="Step size for the normal vectors. Default: 2.5"
@@ -106,6 +106,10 @@ def convert_single_file(
     min_connected_size: int = Option(  # noqa: B008
         1e4,
         help="Minimum size of the connected component. Only used if only_largest_component is True.",
+    ),
+    imod_meshing: bool = Option(  # noqa: B008
+        False,
+        help="Should the mesh be generated using IMOD? WARNING: This is highly experimental.",
     ),
 ):
     """Convert a single membrane segmentation to a mesh.
@@ -130,6 +134,7 @@ def convert_single_file(
         crop_box_flag=crop_box_flag,
         only_largest_component=only_largest_component,
         min_connected_size=min_connected_size,
+        imod_meshing=imod_meshing,
     )
 
 
@@ -157,8 +162,8 @@ def convert_mb_folder(
         help="Pixel size of the output tomogram. Only used if match_size_flag is True.",
     ),
     step_numbers: List[int] = Option(  # noqa: B008
-        (-6, 7),
-        help="Step numbers for the normal vectors. Default: (-6, 7)",
+        (-10, 10),
+        help="Step numbers for the normal vectors. Default: (-10, 10)",
     ),
     step_size: float = Option(  # noqa: B008
         2.5, help="Step size for the normal vectors. Default: 2.5"
@@ -179,6 +184,10 @@ def convert_mb_folder(
     min_connected_size: int = Option(  # noqa: B008
         1e4,
         help="Minimum size of the connected component. Only used if only_largest_component is True.",
+    ),
+    imod_meshing: bool = Option(  # noqa: B008
+        False,
+        help="Should the mesh be generated using IMOD? WARNING: This is highly experimental.",
     ),
 ):
     """Convert a folder of membrane segmentations to meshes.
@@ -201,6 +210,7 @@ def convert_mb_folder(
         crop_box_flag=crop_box_flag,
         only_largest_component=only_largest_component,
         min_connected_size=min_connected_size,
+        imod_meshing=imod_meshing,
     )
 
 
@@ -230,8 +240,8 @@ def convert_folder_structure(
         help="Pixel size of the output tomogram. Only used if match_size_flag is True.",
     ),
     step_numbers: List[int] = Option(  # noqa: B008
-        (-6, 7),
-        help="Step numbers for the normal vectors. Default: (-6, 7)",
+        (-10, 10),
+        help="Step numbers for the normal vectors. Default: (-10, 10)",
     ),
     step_size: float = Option(  # noqa: B008
         2.5, help="Step size for the normal vectors. Default: 2.5"
@@ -252,6 +262,10 @@ def convert_folder_structure(
     min_connected_size: int = Option(  # noqa: B
         1e4,
         help="Minimum size of the connected component. Only used if only_largest_component is True.",
+    ),
+    imod_meshing: bool = Option(  # noqa: B
+        False,
+        help="Should the mesh be generated using IMOD? WARNING: This is highly experimental.",
     ),
 ):
     """Convert a folder structure of membrane segmentations to meshes.
@@ -274,6 +288,7 @@ def convert_folder_structure(
         crop_box_flag=crop_box_flag,
         only_largest_component=only_largest_component,
         min_connected_size=min_connected_size,
+        imod_meshing=imod_meshing,
     )
 
 
