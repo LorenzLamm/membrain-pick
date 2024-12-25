@@ -107,6 +107,10 @@ def convert_single_file(
         1e4,
         help="Minimum size of the connected component. Only used if only_largest_component is True.",
     ),
+    imod_meshing: bool = Option(  # noqa: B008
+        False,
+        help="Should the mesh be generated using IMOD? WARNING: This is highly experimental.",
+    ),
 ):
     """Convert a single membrane segmentation to a mesh.
 
@@ -130,6 +134,7 @@ def convert_single_file(
         crop_box_flag=crop_box_flag,
         only_largest_component=only_largest_component,
         min_connected_size=min_connected_size,
+        imod_meshing=imod_meshing,
     )
 
 
@@ -180,6 +185,10 @@ def convert_mb_folder(
         1e4,
         help="Minimum size of the connected component. Only used if only_largest_component is True.",
     ),
+    imod_meshing: bool = Option(  # noqa: B008
+        False,
+        help="Should the mesh be generated using IMOD? WARNING: This is highly experimental.",
+    ),
 ):
     """Convert a folder of membrane segmentations to meshes.
 
@@ -201,6 +210,7 @@ def convert_mb_folder(
         crop_box_flag=crop_box_flag,
         only_largest_component=only_largest_component,
         min_connected_size=min_connected_size,
+        imod_meshing=imod_meshing,
     )
 
 
@@ -253,6 +263,10 @@ def convert_folder_structure(
         1e4,
         help="Minimum size of the connected component. Only used if only_largest_component is True.",
     ),
+    imod_meshing: bool = Option(  # noqa: B
+        False,
+        help="Should the mesh be generated using IMOD? WARNING: This is highly experimental.",
+    ),
 ):
     """Convert a folder structure of membrane segmentations to meshes.
 
@@ -274,6 +288,7 @@ def convert_folder_structure(
         crop_box_flag=crop_box_flag,
         only_largest_component=only_largest_component,
         min_connected_size=min_connected_size,
+        imod_meshing=imod_meshing,
     )
 
 

@@ -2,16 +2,36 @@ import os
 import numpy as np
 from scipy.ndimage import zoom
 
-from membrain_seg.segmentation.dataloading.data_utils import load_tomogram, store_tomogram
-from membrain_pick.dataloading.data_utils import store_array_in_csv, store_point_and_vectors_in_vtp, store_mesh_in_hdf5
-from membrain_pick.compute_mesh_projection import convert_seg_to_evenly_spaced_mesh, compute_values_along_normals
+from membrain_seg.segmentation.dataloading.data_utils import (
+    load_tomogram,
+    store_tomogram,
+)
+from membrain_pick.dataloading.data_utils import (
+    store_array_in_csv,
+    store_point_and_vectors_in_vtp,
+    store_mesh_in_hdf5,
+)
+from membrain_pick.compute_mesh_projection import (
+    convert_seg_to_evenly_spaced_mesh,
+    compute_values_along_normals,
+)
 from membrain_pick.mesh_class import Mesh
 
-from membrain_pick.mesh_projection_utils import get_connected_components, get_cropped_arrays, get_normals_from_face_order, get_connected_components, remove_unused_vertices
+from membrain_pick.mesh_projection_utils import (
+    get_connected_components,
+    get_cropped_arrays,
+    get_normals_from_face_order,
+    get_connected_components,
+    remove_unused_vertices,
+)
 
 
 def load_data(
-    mb_file: str, only_largest_component: bool, tomo_file: str, tomogram: np.ndarray, rescale_seg: bool
+    mb_file: str,
+    only_largest_component: bool,
+    tomo_file: str,
+    tomogram: np.ndarray,
+    rescale_seg: bool,
 ) -> np.ndarray:
     """
     Load and process the segmentation data.
@@ -77,6 +97,7 @@ def get_sub_segment(
         cur_tomo = tomo
     return cur_seg, cur_tomo
 
+
 def get_cur_mb_key(mb_key, only_largest_component, k, sub_seg_count, seg):
     if not only_largest_component:
         sub_seg_count += 1
@@ -87,14 +108,14 @@ def get_cur_mb_key(mb_key, only_largest_component, k, sub_seg_count, seg):
 
 
 def save_mesh_data(
-    out_file_base: str, 
-    points: np.ndarray, 
+    out_file_base: str,
+    points: np.ndarray,
     faces: np.ndarray,
-    point_normals: np.ndarray, 
-    normal_values: np.ndarray, 
-    only_obj: bool, 
+    point_normals: np.ndarray,
+    normal_values: np.ndarray,
+    only_obj: bool,
     tomo_file: str = None,
-    pixel_size: float = None
+    pixel_size: float = None,
 ) -> None:
     """
     Save the mesh data to files.
@@ -129,7 +150,7 @@ def save_mesh_data(
             normals=point_normals,
             normal_values=normal_values,
             tomo_file=os.path.abspath(tomo_file),
-            pixel_size=pixel_size
+            pixel_size=pixel_size,
         )
 
     mesh = Mesh(points, faces + 1)
@@ -138,12 +159,11 @@ def save_mesh_data(
     # precompute spectrals and partitioning
 
 
-
 def convert_to_mesh(
-    mb_file: str, 
-    tomo_file: str, 
-    out_folder: str, 
-    tomo: np.ndarray = None, 
+    mb_file: str,
+    tomo_file: str,
+    out_folder: str,
+    tomo: np.ndarray = None,
     only_obj: bool = False,
     token: str = None,
     step_numbers: tuple[int, int] = (-6, 7),
@@ -153,8 +173,9 @@ def convert_to_mesh(
     input_pixel_size: float = None,
     output_pixel_size: float = None,
     crop_box_flag: bool = False,
-    only_largest_component: bool = True, 
-    min_connected_size: float = 1e4
+    only_largest_component: bool = True,
+    min_connected_size: float = 1e4,
+    imod_meshing: bool = False,
 ) -> None:
     """
     Converts segmentation data into a mesh format and stores it.
@@ -196,45 +217,54 @@ def convert_to_mesh(
     -------
     None
     """
-    
+
     print(f"Processing {mb_file}")
     rescale_seg = False
-    tomo, seg, mb_key = load_data(mb_file, only_largest_component, tomo_file, tomo, rescale_seg)
+    tomo, seg, mb_key = load_data(
+        mb_file, only_largest_component, tomo_file, tomo, rescale_seg
+    )
 
     sub_seg_count = 0
     for k in range(1, seg.max() + 1):
         if np.sum(seg == k) < min_connected_size:
             continue
-        cur_mb_key, sub_seg_count = get_cur_mb_key(mb_key, only_largest_component, k, sub_seg_count, seg)
+        cur_mb_key, sub_seg_count = get_cur_mb_key(
+            mb_key, only_largest_component, k, sub_seg_count, seg
+        )
         cur_seg, cur_tomo = get_sub_segment(seg, k, tomo, crop_box_flag)
- 
+
         # This returns vertices in the new pixel size -- be careful!!
-        mesh = convert_seg_to_evenly_spaced_mesh(seg=cur_seg,
-                                                 smoothing=mesh_smoothing,
-                                                 was_rescaled=rescale_seg, #TODO: make adjustable
-                                                 input_pixel_size=input_pixel_size,
-                                                 barycentric_area=barycentric_area)
-        
+        mesh = convert_seg_to_evenly_spaced_mesh(
+            seg=cur_seg,
+            smoothing=mesh_smoothing,
+            was_rescaled=rescale_seg,  # TODO: make adjustable
+            input_pixel_size=input_pixel_size,
+            barycentric_area=barycentric_area,
+            imod_meshing=imod_meshing,
+        )
+
         points, faces, point_normals = get_normals_from_face_order(mesh)
-        points, faces, point_normals = remove_unused_vertices(points, faces, point_normals)
-
+        points, faces, point_normals = remove_unused_vertices(
+            points, faces, point_normals
+        )
         if not only_obj:
-            normal_values = compute_values_along_normals(mesh=mesh, 
-                                                        tomo=cur_tomo, 
-                                                        steps=step_numbers, 
-                                                        step_size=step_size, 
-                                                        input_pixel_size=input_pixel_size,
-                                                        output_pixel_size=output_pixel_size,
-                                                        verts=points,
-                                                        normals=point_normals)
-
+            normal_values = compute_values_along_normals(
+                mesh=mesh,
+                tomo=cur_tomo,
+                steps=step_numbers,
+                step_size=step_size,
+                input_pixel_size=input_pixel_size,
+                output_pixel_size=output_pixel_size,
+                verts=points,
+                normals=point_normals,
+            )
         save_mesh_data(
             out_file_base=os.path.join(out_folder, token + "_" + cur_mb_key),
-             points=points, 
-             faces=faces, 
-             point_normals=point_normals, 
-             normal_values=normal_values, 
-             only_obj=only_obj,
-             tomo_file=tomo_file,
-             pixel_size=1. # points dimension corresponds already to tomogram dimensions
-             )
+            points=points,
+            faces=faces,
+            point_normals=point_normals,
+            normal_values=normal_values,
+            only_obj=only_obj,
+            tomo_file=tomo_file,
+            pixel_size=1.0,  # points dimension corresponds already to tomogram dimensions
+        )
