@@ -603,6 +603,45 @@ def surforama(
     napari.run()
 
 
+@cli.command(name="assign_angles", no_args_is_help=True)
+def assign_angles(
+    position_file: str = Option(  # noqa: B008
+        ...,
+        help="Path to the positions file. Can be a CSV file (first 3 columns are x, y, z) or a star file (relion or stopgap).",
+        **PKWARGS,
+    ),
+    obj_file: str = Option(  # noqa: B008
+        default="",
+        help="Path to an obj file with the membrane mesh. Provide either this or the segmentation file.",
+    ),
+    segmentation_file: str = Option(  # noqa: B008
+        default="",
+        help="Path to a membrane segmentation file. Provide either this or the obj file.",
+    ),
+    out_dir: str = Option(  # noqa: B008
+        "./angle_output",
+        help="Path to the folder where the output should be stored.",
+    ),
+    position_scale_factor: float = Option(
+        1.0, help="Rescale points to match mesh dimensions"
+    ),  # noqa: B008
+    out_format: str = Option(  # noqa: B008
+        "RELION",
+        help="Output format for the angles. Choose from RELION or STOPGAP.",
+    ),
+):
+    from membrain_pick.orientation import orientation_from_files
+
+    orientation_from_files(
+        positions_file=position_file,
+        out_dir=out_dir,
+        mesh_file=obj_file if len(obj_file) > 0 else None,
+        segmentation_file=segmentation_file if len(segmentation_file) > 0 else None,
+        positions_scale_factor=position_scale_factor,
+        out_format=out_format,
+    )
+
+
 @cli.command(name="tomotwin_extract", no_args_is_help=True)
 def tomotwin_extract(
     h5_path: str = Option(  # noqa: B008

@@ -241,6 +241,8 @@ def predict(
                     out_dir=out_dir,
                     out_pos=clusters,
                     out_p_num=out_p_num,
+                    verts=unique_verts,
+                    faces=new_faces,
                 )
             save_output_h5(
                 unique_verts,
@@ -295,6 +297,8 @@ def predict(
             out_dir=out_dir,
             out_pos=clusters,
             out_p_num=out_p_num,
+            verts=unique_verts,
+            faces=new_faces,
         )
     save_output_h5(
         unique_verts,
