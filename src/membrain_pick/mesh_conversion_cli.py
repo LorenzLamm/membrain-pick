@@ -3,6 +3,8 @@
 import typer
 from click import Context
 from typer.core import TyperGroup
+from typing import List
+from typer import Option
 
 
 class OrderCommands(TyperGroup):
@@ -43,17 +45,6 @@ def callback():
 
     -------
     """
-
-
-from typing import List
-
-from typer import Option
-
-from membrain_pick.mesh_conversion_wrappers import (
-    mesh_for_single_mb_file,
-    mesh_for_tomo_mb_folder,
-    meshes_for_folder_structure,
-)
 
 
 @cli.command(name="convert_file", no_args_is_help=True)
@@ -116,6 +107,8 @@ def convert_single_file(
     -------
     membrain-pick convert_file --tomogram-path <path-to-your-tomo> --mb-path <path-to-your-membrane-segmentation> --out-folder <path-to-store-meshes>
     """
+
+    from membrain_pick.mesh_conversion_wrappers import mesh_for_single_mb_file
 
     mesh_for_single_mb_file(
         mb_file=mb_path,
@@ -194,6 +187,8 @@ def convert_mb_folder(
     -------
     membrain-pick convert_mb_folder --mb-folder <path-to-your-folder> --tomo-path <path-to-tomo> --out-folder <path-to-store-meshes>
     """
+    from membrain_pick.mesh_conversion_wrappers import mesh_for_tomo_mb_folder
+
     mesh_for_tomo_mb_folder(
         mb_folder=mb_folder,
         tomo_file=tomo_path,
@@ -272,6 +267,8 @@ def convert_folder_structure(
     -------
     membrain-pick convert_folder_structure --mb-folder <path-to-your-folder> --tomo-folder <path-to-your-tomo-folder> --out-folder <path-to-store-meshes>
     """
+    from membrain_pick.mesh_conversion_wrappers import meshes_for_folder_structure
+
     meshes_for_folder_structure(
         mb_folder=mb_folder,
         tomo_folder=tomo_folder,
@@ -400,10 +397,6 @@ def train(
     )
 
 
-# predict CLI
-from membrain_pick.predict import predict as _predict
-
-
 @cli.command(name="predict", no_args_is_help=True)
 def predict(
     data_dir: str = Option(  # noqa: B008
@@ -459,6 +452,9 @@ def predict(
     -------
     membrain-pick predict --data-dir <path-to-your-folder> --ckpt-path <path-to-your-checkpoint> --out-dir <path-to-store-output>
     """
+    # predict CLI
+    from membrain_pick.predict import predict as _predict
+
     _predict(
         data_dir=data_dir,
         ckpt_path=ckpt_path,
@@ -479,9 +475,6 @@ def predict(
         mean_shift_score_threshold=mean_shift_score_threshold,
         mean_shift_device=mean_shift_device,
     )
-
-
-from membrain_pick.mean_shift_inference import mean_shift_for_csv as _mean_shift_for_csv
 
 
 @cli.command(name="mean_shift", no_args_is_help=True)
@@ -509,6 +502,10 @@ def mean_shift_for_csv(
     -------
     membrain-pick mean_shift --csv-path <path-to-your-csv> --out-dir <path-to-store-output>
     """
+    from membrain_pick.mean_shift_inference import (
+        mean_shift_for_csv as _mean_shift_for_csv,
+    )
+
     _mean_shift_for_csv(
         csv_file=csv_path,
         out_dir=out_dir,
