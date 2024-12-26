@@ -4,8 +4,6 @@ import typer
 from click import Context
 from typer.core import TyperGroup
 
-from membrain_pick.train import train as _train
-
 
 class OrderCommands(TyperGroup):
     """Return list of commands in the order appear."""
@@ -366,6 +364,8 @@ def train(
     -------
     membrain-pick train --data-dir <path-to-your-folder> --training-dir <path-to-your-folder>
     """
+    from membrain_pick.train import train as _train
+
     _train(
         data_dir=data_dir,
         training_dir=training_dir,
