@@ -21,12 +21,12 @@ The workflow of MemBrain-pick is as follows:
 ---
 
 ## Jump to
-- [Installation](Installation.md)
-- [Data Preparation](Data_Preparation.md)
-- [Training](Training.md)
-- [Prediction](Prediction.md)
-- [Angle Assignment](Angle_Assignment.md)
-- [Visualization in Surforama](Surforama_Inspection.md)
+- [Installation](docs/Installation.md)
+- [Data Preparation](docs/Data_Preparation.md)
+- [Training](docs/Training.md)
+- [Prediction](docs/Prediction.md)
+- [Angle Assignment](docs/Angle_Assignment.md)
+- [Visualization in Surforama](docs/Surforama_Inspection.md)
 
 
 MemBrain-pick is part of the MemBrain v2 [1] package and still under early development. If you have any questions or suggestions, please contact us at lorenz.lamm@helmholtz-munich.de
