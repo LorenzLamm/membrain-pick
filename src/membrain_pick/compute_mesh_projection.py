@@ -167,8 +167,7 @@ def compute_positions_along_normals(
     verts=None,
     normals=None,
     input_pixel_size=14.08,
-    output_pixel_size=10.0,
-):  # TODO: remove
+):
     # Get vertices and triangle combinations
     if verts is None:
         verts = mesh.points
@@ -184,9 +183,6 @@ def compute_positions_along_normals(
         * tomo_step_size
     )
 
-    # # Go back to original pixel size to match tomogram #TODO: remove
-    # pixel_factor = input_pixel_size / output_pixel_size #TODO: remove
-    # positions = positions / pixel_factor #TODO: remove
     return positions
 
 
@@ -195,7 +191,6 @@ def compute_values_along_normals(
     tomo,
     steps=(-6, 7),
     input_pixel_size=10.0,
-    output_pixel_size=10.0,
     step_size=2.5,  # in Angstrom
     verts=None,
     normals=None,
@@ -208,7 +203,6 @@ def compute_values_along_normals(
         verts=verts,
         normals=normals,
         input_pixel_size=input_pixel_size,
-        output_pixel_size=output_pixel_size,
     )
 
     # Get values along normals
