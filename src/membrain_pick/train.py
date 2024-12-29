@@ -1,11 +1,13 @@
-import os 
+import os
 
 import pytorch_lightning as pl
 from pytorch_lightning import Callback
 from pytorch_lightning import loggers as pl_loggers
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 
-from membrain_pick.dataloading.diffusionnet_datamodule import MemSegDiffusionNetDataModule
+from membrain_pick.dataloading.diffusionnet_datamodule import (
+    MemSegDiffusionNetDataModule,
+)
 from membrain_pick.optimization.diffusion_training_pylit import DiffusionNetModule
 
 
@@ -14,11 +16,7 @@ def train(
     training_dir: str = "./training_output",
     project_name: str = "test_diffusion",
     sub_name: str = "0",
-    allpos: bool=False,
-    use_psii: bool=True,
-    use_b6f: bool=False,
-    use_uk: bool=False,
-
+    position_tokens: list = None,
     # Dataset parameters
     overfit: bool = False,
     overfit_mb: bool = False,
@@ -27,9 +25,7 @@ def train(
     augment_all: bool = True,
     aug_prob_to_one: bool = False,
     input_pixel_size: float = 10.0,
-    process_pixel_size: float = 15.0,
     k_eig: int = 128,
-
     # Model parameters
     N_block: int = 6,
     C_width: int = 16,
@@ -39,17 +35,14 @@ def train(
     with_gradient_rotations: bool = True,
     device: str = "cuda:0",
     one_D_conv_first: bool = False,
-
     # Mean shift parameters
     mean_shift_output: bool = False,
-    mean_shift_bandwidth: float = 7.,
+    mean_shift_bandwidth: float = 7.0,
     mean_shift_max_iter: int = 10,
-    mean_shift_margin: float = 2.,
-
+    mean_shift_margin: float = 2.0,
     # Training parameters
     max_epochs: int = 1000,
-
-    ):
+):
 
     train_path = os.path.join(data_dir, "train")
     val_path = os.path.join(data_dir, "val")
@@ -68,16 +61,11 @@ def train(
         augment_all=augment_all,
         aug_prob_to_one=aug_prob_to_one,
         input_pixel_size=input_pixel_size,
-        process_pixel_size=process_pixel_size,
-        allpos=allpos,
-        use_psii=use_psii,
-        use_b6f=use_b6f,
-        use_uk=use_uk,
+        position_tokens=position_tokens,
         k_eig=k_eig,
         batch_size=1,
         num_workers=0,
         pin_memory=False,
-
     )
     data_module.setup()
 
@@ -106,7 +94,7 @@ def train(
 
     # Set up model checkpointing
     checkpoint_callback_val_loss = ModelCheckpoint(
-        dirpath="checkpoints/",
+        dirpath=f"{training_dir}/checkpoints/",
         filename=checkpointing_name + "-{epoch:02d}-{val_loss:.2f}",
         monitor="val_loss",
         mode="min",
@@ -116,7 +104,7 @@ def train(
     checkpoint_callback_regular = ModelCheckpoint(
         save_top_k=-1,  # Save all checkpoints
         every_n_epochs=100,
-        dirpath="checkpoints/",
+        dirpath=f"{training_dir}/checkpoints/",
         filename=checkpointing_name + "-{epoch}-{val_loss:.2f}",
         verbose=True,  # Print a message when a checkpoint is saved
     )

@@ -52,21 +52,21 @@ def save_output(cur_mb_data, out_dir, mb_token):
         unique_labels[i] = all_labels[indices[0]]
         unique_features[i] = all_features[indices[0]]
 
-    store_array_in_csv(
-        out_file_csv,
-        np.concatenate((unique_verts, np.expand_dims(unique_scores, axis=1)), axis=1),
-        header=["x", "y", "z", "score"],
-    )
-    store_array_in_npy(
-        out_file_csv.replace(".csv", ".npy"),
-        np.concatenate((unique_verts, np.expand_dims(unique_scores, axis=1)), axis=1),
-    )
-    store_point_and_vectors_in_vtp(
-        out_file_vtp,
-        unique_verts,
-        in_scalars=[unique_labels, unique_scores]
-        + [unique_features[:, i] for i in range(0, unique_features.shape[1])],
-    )
+    # store_array_in_csv(
+    #     out_file_csv,
+    #     np.concatenate((unique_verts, np.expand_dims(unique_scores, axis=1)), axis=1),
+    #     header=["x", "y", "z", "score"],
+    # )
+    # store_array_in_npy(
+    #     out_file_csv.replace(".csv", ".npy"),
+    #     np.concatenate((unique_verts, np.expand_dims(unique_scores, axis=1)), axis=1),
+    # )
+    # store_point_and_vectors_in_vtp(
+    #     out_file_vtp,
+    #     unique_verts,
+    #     in_scalars=[unique_labels, unique_scores]
+    #     + [unique_features[:, i] for i in range(0, unique_features.shape[1])],
+    # )
 
     return unique_verts, unique_scores, out_file_csv, unique_labels, new_faces
 
@@ -118,7 +118,6 @@ def predict(
     # Dataset parameters
     partition_size: int = 2000,
     input_pixel_size: float = 10.0,
-    process_pixel_size: float = 15.0,
     force_recompute_partitioning: bool = False,
     k_eig: int = 128,
     N_block: int = 4,
@@ -148,15 +147,13 @@ def predict(
         csv_folder_test=data_dir,
         is_single_mb=is_single_mb,
         load_n_sampled_points=partition_size,
-        cache_dir="./mb_cache",  # always recompute partitioning
+        cache_dir=f"{out_dir}/mb_cache",  # always recompute partitioning
         input_pixel_size=input_pixel_size,
-        process_pixel_size=process_pixel_size,
         k_eig=k_eig,
         batch_size=1,
         force_recompute=force_recompute_partitioning,
         num_workers=0,
         pin_memory=False,
-        allpos=True,
         overfit=False,
     )
     data_module.setup(stage="test")
@@ -310,26 +307,3 @@ def predict(
         tomo_file=prev_tomo_file,
         pixel_size=input_pixel_size,
     )
-
-
-def main():
-    data_dir = (
-        "/scicore/home/engel0006/GROUP/pool-engel/Lorenz/2D_projections/mesh_data/val"
-    )
-    data_dir = "/scicore/home/engel0006/GROUP/pool-engel/Lorenz/MemBrain-pick/data/Spinach/meshes/Tomo0001/"
-    ckpt_path = "/scicore/home/engel0006/GROUP/pool-engel/Lorenz/MemBrain-pick/scripts/checkpoints/test_diffusion_0-epoch=999-val_loss=1.22.ckpt"
-    ckpt_path = "/scicore/home/engel0006/GROUP/pool-engel/Lorenz/MemBrain-pick/scripts/checkpoints/tomo17_run1-epoch=11-val_loss=0.83.ckpt"
-    out_dir = "/scicore/home/engel0006/GROUP/pool-engel/Lorenz/MemBrain-pick/evaluations/Spinach/predictions/Tomo0010"
-    predict(
-        data_dir,
-        ckpt_path,
-        out_dir,
-        partition_size=2000,
-        pixel_size=15.0,
-        mean_shift_output=True,
-        mean_shift_bandwidth=5 * 15.0,
-    )
-
-
-if __name__ == "__main__":
-    main()

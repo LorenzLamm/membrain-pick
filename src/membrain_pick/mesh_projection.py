@@ -171,7 +171,6 @@ def convert_to_mesh(
     mesh_smoothing: int = 1000,
     barycentric_area: float = 1.0,
     input_pixel_size: float = None,
-    output_pixel_size: float = None,
     crop_box_flag: bool = False,
     only_largest_component: bool = True,
     min_connected_size: float = 1e4,
@@ -254,7 +253,6 @@ def convert_to_mesh(
                 steps=step_numbers,
                 step_size=step_size,
                 input_pixel_size=input_pixel_size,
-                output_pixel_size=output_pixel_size,
                 verts=points,
                 normals=point_normals,
             )
