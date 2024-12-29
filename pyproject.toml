@@ -35,6 +35,7 @@ dependencies = [
     "pyvista",
     "robust-laplacian",
     "scikit-learn",
+    "scipy < 1.12.1",
     "starfile",
     "trimesh",
     "vtk",
