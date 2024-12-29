@@ -1,16 +1,14 @@
-import os
 from typing import Optional
 import pytorch_lightning as pl
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader
 from membrain_pick.dataloading.diffusionnet_dataset import MemSegDiffusionNetDataset
 import torch
-from torch.utils.data.dataloader import default_collate
 import numpy as np
 
 
 def custom_collate(batch):
     """Custom collate function to handle a complex data structure.
-    
+
     Each sample is a dictionary containing numpy arrays and another dictionary
     with sparse matrices. Since we're using a batch size of 1, this function
     simplifies the handling of these structures.
@@ -18,7 +16,7 @@ def custom_collate(batch):
     Args:
         batch: A list of samples, where each sample is the complex data structure
                described above.
-    
+
     Returns:
         Processed batch ready for model input.
     """
@@ -35,13 +33,14 @@ def custom_collate(batch):
         elif isinstance(value, dict):
             # For the nested dictionary, we assume it contains sparse matrices
             # and pass it through directly without modifications
-            processed_sample[key] = {subkey: subvalue.to(device) for subkey, subvalue in value.items()}
+            processed_sample[key] = {
+                subkey: subvalue.to(device) for subkey, subvalue in value.items()
+            }
         else:
             # Directly pass through any other types of values
             processed_sample[key] = value
 
     return processed_sample
-
 
 
 class MemSegDiffusionNetDataModule(pl.LightningDataModule):
@@ -51,19 +50,15 @@ class MemSegDiffusionNetDataModule(pl.LightningDataModule):
         csv_folder_val: str,
         csv_folder_test: Optional[str] = None,
         load_n_sampled_points: int = 2000,
-        is_single_mb: bool = False, # For testing single membrane
+        is_single_mb: bool = False,  # For testing single membrane
         overfit: bool = False,
         force_recompute: bool = False,
         overfit_mb: bool = False,
-        allpos:bool = False,
-        use_psii: bool = True,
-        use_b6f: bool = False,
-        use_uk: bool = False,
+        position_tokens: list = None,
         cache_dir: Optional[str] = None,
         augment_all: bool = True,
         aug_prob_to_one: bool = False,
         input_pixel_size: float = 10.0,
-        process_pixel_size: float = 15.0,
         k_eig: int = 128,
         batch_size: int = 1,
         num_workers: int = 16,
@@ -82,13 +77,9 @@ class MemSegDiffusionNetDataModule(pl.LightningDataModule):
         self.cache_dir = cache_dir
         self.augment_all = augment_all
         self.input_pixel_size = input_pixel_size
-        self.process_pixel_size = process_pixel_size
-        self.allpos = allpos
-        self.use_psii = use_psii
-        self.use_b6f = use_b6f
-        self.use_uk = use_uk
         self.aug_prob_to_one = aug_prob_to_one
 
+        self.position_tokens = position_tokens
 
         self.k_eig = k_eig
         self.batch_size = batch_size
@@ -101,7 +92,7 @@ class MemSegDiffusionNetDataModule(pl.LightningDataModule):
         self.test_dataset = None
 
     def setup(self, stage: Optional[str] = None):
-        if stage == 'fit' or stage is None:
+        if stage == "fit" or stage is None:
             if self.train_dataset is None:
                 self.train_dataset = MemSegDiffusionNetDataset(
                     data_folder=self.csv_folder_train,
@@ -112,15 +103,11 @@ class MemSegDiffusionNetDataModule(pl.LightningDataModule):
                     force_recompute=self.force_recompute,
                     overfit_mb=self.overfit_mb,
                     cache_dir=self.cache_dir,
+                    position_tokens=self.position_tokens,
                     augment_all=self.augment_all,
                     aug_prob_to_one=self.aug_prob_to_one,
                     input_pixel_size=self.input_pixel_size,
-                    process_pixel_size=self.process_pixel_size,
                     k_eig=self.k_eig,
-                    allpos=self.allpos,
-                    use_psii=self.use_psii,
-                    use_b6f=self.use_b6f,
-                    use_uk=self.use_uk,
                 )
             if self.val_dataset is None:
                 self.val_dataset = MemSegDiffusionNetDataset(
@@ -132,17 +119,13 @@ class MemSegDiffusionNetDataModule(pl.LightningDataModule):
                     force_recompute=self.force_recompute,
                     overfit_mb=self.overfit_mb,
                     cache_dir=self.cache_dir,
+                    position_tokens=self.position_tokens,
                     augment_all=self.augment_all,
                     input_pixel_size=self.input_pixel_size,
-                    process_pixel_size=self.process_pixel_size,
                     k_eig=self.k_eig,
-                    allpos=self.allpos,
-                    use_psii=self.use_psii,
-                    use_b6f=self.use_b6f,
-                    use_uk=self.use_uk,
                 )
             self.parameter_len = self.train_dataset.get_parameter_len()
-        elif stage == 'test' or stage is None:
+        elif stage == "test" or stage is None:
             if self.test_dataset is None:
                 self.test_dataset = MemSegDiffusionNetDataset(
                     data_folder=self.csv_folder_test,
@@ -154,16 +137,11 @@ class MemSegDiffusionNetDataModule(pl.LightningDataModule):
                     force_recompute=self.force_recompute,
                     overfit_mb=self.overfit_mb,
                     cache_dir=self.cache_dir,
+                    position_tokens=self.position_tokens,
                     augment_all=self.augment_all,
                     input_pixel_size=self.input_pixel_size,
-                    process_pixel_size=self.process_pixel_size,
                     k_eig=self.k_eig,
-                    allpos=self.allpos,
-                    use_psii=self.use_psii,
-                    use_b6f=self.use_b6f,
-                    use_uk=self.use_uk,
                 )
-
 
     def train_dataloader(self):
         return DataLoader(
@@ -184,7 +162,7 @@ class MemSegDiffusionNetDataModule(pl.LightningDataModule):
             pin_memory=self.pin_memory,
             collate_fn=custom_collate,
         )
-    
+
     def test_dataloader(self):
         return DataLoader(
             self.test_dataset,

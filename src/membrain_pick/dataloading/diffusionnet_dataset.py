@@ -48,12 +48,8 @@ class MemSegDiffusionNetDataset(Dataset):
         augment_all: bool = True,
         overfit_mb: bool = False,
         aug_prob_to_one: bool = False,
-        allpos: bool = False,
-        use_psii: bool = True,
-        use_b6f: bool = False,
-        use_uk: bool = False,
+        position_tokens: list = None,
         input_pixel_size: float = 10.0,
-        process_pixel_size: float = 15.0,
         k_eig: int = 128,
         shuffle: bool = True,
         test_mb=None,
@@ -83,13 +79,10 @@ class MemSegDiffusionNetDataset(Dataset):
         self.aug_prob_to_one = aug_prob_to_one
         self.augment_all = augment_all
         self.input_pixel_size = input_pixel_size
-        self.process_pixel_size = process_pixel_size
+        self.process_pixel_size = 15.0  # hard-coded for now
 
         self.diffusion_operator_params = diffusion_operator_params
-        self.allpos = allpos
-        self.use_psii = use_psii
-        self.use_b6f = use_b6f
-        self.use_uk = use_uk
+        self.position_tokens = position_tokens
         self.shuffle = shuffle
 
         self.diffusion_operator_params["k_eig"] = k_eig
@@ -276,76 +269,13 @@ class MemSegDiffusionNetDataset(Dataset):
             return 16
         return self.part_verts[0].shape[1] - 3
 
-    # def load_data(self) -> None: #TODO: Remove function
-    #     """
-    #     Loads data-label pairs into memory from the specified directories.
-    #     """
-    #     print("Loading  membranes into dataset.")
-    #     self.membranes = []
-    #     self.labels = []
-    #     self.faces = []
-    #     self.vert_normals = []
-    #     self.gt_pos = []
-    #     for entry in self.data_paths:
-    #         points = np.array(get_csv_data(entry[0]), dtype=float)
-    #         if isinstance(entry[1], list):
-    #             gt_pos = np.zeros((0, 3))
-    #             for gt_file in entry[1]:
-    #                 if gt_file is None:
-    #                     continue
-    #                 if os.path.isfile(gt_file):
-    #                     gt_pos = np.concatenate([gt_pos, np.array(get_csv_data(gt_file), dtype=float)], axis=0)
-    #                 else:
-    #                     print("Warning: GT file is not a file")
-    #             gt_pos = project_points_to_nearest_hyperplane(gt_pos, points[:, :3])
-    #             if gt_pos.shape[0] == 0:
-    #                 gt_pos = np.zeros((1, 3))
-    #         elif os.path.isfile(entry[1]):
-    #             gt_pos = np.array(get_csv_data(entry[1]), dtype=float)
-    #             gt_pos = project_points_to_nearest_hyperplane(gt_pos, points[:, :3])
-    #         else:
-    #             gt_pos = np.zeros((1, 3))
-
-    #         faces = np.array(get_csv_data(entry[2]), dtype=int)
-    #         vert_normals = np.array(get_csv_data(entry[3]), dtype=float)
-
-    #         distances, nn_idcs = compute_nearest_distances(points[:, :3], gt_pos)
-
-    #         # Move GT along nearest normal
-    #         _, nn_idcs_psii = compute_nearest_distances(gt_pos, points[:, :3])
-    #         psii_normals = vert_normals[nn_idcs_psii]
-
-    #         nearest_PSII_pos = gt_pos[nn_idcs] + psii_normals[nn_idcs]*20
-    #         connection_vectors = nearest_PSII_pos - (points[:, :3])
-
-    #         angle_to_normal = np.einsum("ij,ij->i", connection_vectors, vert_normals)
-    #         mask = angle_to_normal < 0
-
-    #         distances[distances > 10] = 10
-    #         distances[mask] = 10.05
-    #         points[:, :3] /= self.max_tomo_shape
-    #         points[:, :3] *= self.pixel_size
-    #         gt_pos /= self.max_tomo_shape
-    #         gt_pos *= self.pixel_size
-
-    #         self.membranes.append(points)
-    #         self.labels.append(distances)
-    #         self.faces.append(faces)
-    #         self.vert_normals.append(vert_normals)
-    #         self.gt_pos.append(gt_pos)
-    #         if self.overfit:
-    #             break
-
     def _get_GT_mask(self, gt_pos, gt_classes):
         gt_mask = np.zeros(gt_pos.shape[0], dtype=bool)
-        if self.allpos:
+        if self.position_tokens is None:
             gt_mask = np.ones(gt_pos.shape[0], dtype=bool)
-        if self.use_psii:
-            gt_mask = np.logical_or(gt_mask, gt_classes == "PSII")
-        if self.use_b6f:
-            gt_mask = np.logical_or(gt_mask, gt_classes == "b6f")
-        if self.use_uk:
-            gt_mask = np.logical_or(gt_mask, gt_classes == "UK")
+        else:
+            for token in self.position_tokens:
+                gt_mask = np.logical_or(gt_mask, gt_classes == token)
         return gt_mask
 
     def load_data(self) -> None:
@@ -379,8 +309,7 @@ class MemSegDiffusionNetDataset(Dataset):
                 # check size of gt_data
                 if gt_data.shape[0] == 0:
                     gt_pos = np.zeros((1, 3))
-                    gt_classes = np.zeros(1)
-                    self.allpos = True
+                    gt_classes = np.ones(1) * -1
                 else:
                     gt_pos = gt_data[
                         ["rlnCoordinateX", "rlnCoordinateY", "rlnCoordinateZ"]
@@ -391,13 +320,11 @@ class MemSegDiffusionNetDataset(Dataset):
                     if "rlnClassNumber" in gt_data.columns:
                         gt_classes = gt_data["rlnClassNumber"].values
                     else:
-                        gt_classes = np.zeros(gt_pos.shape[0])
-                        self.allpos = True
+                        gt_classes = np.ones(gt_pos.shape[0])
                     gt_pos = project_points_to_nearest_hyperplane(gt_pos, points[:, :3])
             else:
                 gt_pos = np.zeros((1, 3))
-                gt_classes = np.zeros(1)
-                self.allpos = True
+                gt_classes = np.ones(1) * -1
 
             gt_mask = self._get_GT_mask(gt_pos, gt_classes)
             gt_pos = gt_pos[gt_mask]
