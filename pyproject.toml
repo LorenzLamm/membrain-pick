@@ -24,28 +24,20 @@ classifiers = [
     "Typing :: Typed",
 ]
 dynamic = ["version"]
+
 dependencies = [
-    "monai",
-    "pytorch-lightning",
-    "torch",
-    "imageio",
-    "scipy",
-    "typer[all]",
-    "scikit-image",
-    "simpleitk",
-    "pandas",
-    "mrcfile",
-    "pyvista",
-    "vtk",
-    "pyacvd",
-    "scikit-learn",
-    "potpourri3d",
-    "robust-laplacian",
-    "lxml[html_clean]",
-    "starfile",
     "h5py",
+    "lxml[html_clean]",
+    "membrain-seg", 
+    "potpourri3d",
+    "pyacvd",
     "PyQt5",
-    "trimesh"
+    "pyvista",
+    "robust-laplacian",
+    "scikit-learn",
+    "starfile",
+    "trimesh",
+    "vtk",
 ]
 
 
