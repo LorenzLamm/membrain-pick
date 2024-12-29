@@ -19,3 +19,11 @@ The workflow of MemBrain-pick is as follows:
 - **Initial orientaton assignment**: Given a set of positions, MemBrain-pick can assign initial orientations to the particles by aligning them with the membrane normal.
 -- **integration with surforama**: MemBrain-pick can be used in conjunction with surforama to manually annotate membrane-associated particles.
 ---
+
+## Jump to
+- [Installation](Installation.md)
+- [Data Preparation](Data_Preparation.md)
+- [Training](Training.md)
+- [Prediction](Prediction.md)
+- [Angle Assignment](Angle_Assignment.md)
+- [Visualization in Surforama](Surforama_Inspection.md)
