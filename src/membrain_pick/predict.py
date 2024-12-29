@@ -33,6 +33,7 @@ def save_output(cur_mb_data, out_dir, mb_token):
 
     # Find unique verts and their inverse indices
     unique_verts, inverse_indices = np.unique(all_verts, axis=0, return_inverse=True)
+    inverse_indices = np.squeeze(inverse_indices)
 
     # Initialize arrays to store the aggregated results
     unique_scores = np.zeros(unique_verts.shape[0])
