@@ -15,7 +15,6 @@ def meshes_for_folder_structure(
     mesh_smoothing=1000,
     barycentric_area=1.0,
     input_pixel_size=None,
-    output_pixel_size=None,
     crop_box_flag=False,
     only_largest_component=True,
     min_connected_size=1e4,
@@ -105,7 +104,6 @@ def meshes_for_folder_structure(
             mesh_smoothing=mesh_smoothing,
             barycentric_area=barycentric_area,
             input_pixel_size=input_pixel_size,
-            output_pixel_size=output_pixel_size,
             crop_box_flag=crop_box_flag,
             only_largest_component=only_largest_component,
             min_connected_size=min_connected_size,
@@ -125,7 +123,6 @@ def mesh_for_tomo_mb_folder(
     mesh_smoothing=1000,
     barycentric_area=1.0,
     input_pixel_size=None,
-    output_pixel_size=None,
     crop_box_flag=False,
     only_largest_component=True,
     min_connected_size=1e4,
@@ -160,7 +157,11 @@ def mesh_for_tomo_mb_folder(
     print(mb_files)
 
     if tomo is None:
-        tomo = load_tomogram(tomo_file).data
+        tomo = load_tomogram(tomo_file)
+        input_pixel_size = (
+            tomo.voxel_size if input_pixel_size is None else input_pixel_size
+        )
+        tomo = tomo.data
         if tomo_token is None:
             tomo_token = os.path.basename(tomo_file).split(".")[0]
 
@@ -180,7 +181,6 @@ def mesh_for_tomo_mb_folder(
             mesh_smoothing=mesh_smoothing,
             barycentric_area=barycentric_area,
             input_pixel_size=input_pixel_size,
-            output_pixel_size=output_pixel_size,
             crop_box_flag=crop_box_flag,
             only_largest_component=only_largest_component,
             min_connected_size=min_connected_size,
@@ -200,7 +200,6 @@ def mesh_for_single_mb_file(
     mesh_smoothing=1000,
     barycentric_area=1.0,
     input_pixel_size=None,
-    output_pixel_size=None,
     crop_box_flag=False,
     only_largest_component=True,
     min_connected_size=1e4,
@@ -210,7 +209,11 @@ def mesh_for_single_mb_file(
     os.makedirs(out_folder, exist_ok=True)
 
     if tomo is None:
-        tomo = load_tomogram(tomo_file).data
+        tomo = load_tomogram(tomo_file)
+        input_pixel_size = (
+            tomo.voxel_size if input_pixel_size is None else input_pixel_size
+        )
+        tomo = tomo.data
         if tomo_token is None:
             tomo_token = os.path.basename(tomo_file).split(".")[0]
 
@@ -229,7 +232,6 @@ def mesh_for_single_mb_file(
         mesh_smoothing=mesh_smoothing,
         barycentric_area=barycentric_area,
         input_pixel_size=input_pixel_size,
-        output_pixel_size=output_pixel_size,
         crop_box_flag=crop_box_flag,
         only_largest_component=only_largest_component,
         min_connected_size=min_connected_size,
