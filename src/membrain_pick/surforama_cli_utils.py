@@ -139,16 +139,17 @@ def display_cluster_centers(
 ):
     if "cluster_centers" in mesh_data.keys():
         cluster_centers = mesh_data["cluster_centers"] / pixel_size
-        cluster_centers = np.stack(cluster_centers[:, [2, 1, 0]])
+        if cluster_centers.shape[0] != 0:
+            cluster_centers = np.stack(cluster_centers[:, [2, 1, 0]])
 
-        surforama_widget.picking_widget.enabled = True
-        point_io = surforama_widget.point_writer_widget
-        initialize_points(
-            point_io=point_io,
-            point_coordinates=cluster_centers,
-            point_size=point_size,
-        )
-        surforama_widget.picking_widget.enabled = False
+            surforama_widget.picking_widget.enabled = True
+            point_io = surforama_widget.point_writer_widget
+            initialize_points(
+                point_io=point_io,
+                point_coordinates=cluster_centers,
+                point_size=point_size,
+            )
+            surforama_widget.picking_widget.enabled = False
 
 
 def display_cluster_centers_as_points(viewer, mesh_data, pixel_size, point_size=5.0):

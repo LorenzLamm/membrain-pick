@@ -90,7 +90,12 @@ def store_clusters(
     print(out_pos.shape, "clusters found")
     print(verts.shape, faces.shape, "<-----")
     mesh = trimesh.Trimesh(vertices=verts, faces=faces)
-    relion_euler_angles = orientation_from_mesh(out_pos, mesh)
+    if out_pos.shape[0] != 0:
+        relion_euler_angles = orientation_from_mesh(out_pos, mesh)
+    else:
+        out_pos = np.zeros((0, 3))
+        relion_euler_angles = np.zeros((0, 3))
+
     out_pos = np.concatenate([out_pos, relion_euler_angles], axis=1)
     store_array_in_star(
         out_file=os.path.join(
