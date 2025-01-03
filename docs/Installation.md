@@ -59,6 +59,7 @@ git clone https://github.com/LorenzLamm/surforama.git
 cd surforama
 git checkout star_file_loading_adjustments
 pip install .
+pip install napari
 ```
 
 We are working on a more stable version of surforama that will be compatible with the current version of MemBrain-pick.
