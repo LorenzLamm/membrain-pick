@@ -1,10 +1,21 @@
 import numpy as np
+import trimesh
 from scipy.ndimage import map_coordinates
 from matplotlib.pyplot import get_cmap
 from membrain_seg.segmentation.dataloading.data_utils import load_tomogram
 from surforama.app import QtSurforama
-from membrain_pick.scalar_selection import ScalarSelectionWidget
+from membrain_pick.napari_utils.scalar_selection import ScalarSelectionWidget
 
+from surforama.gui.qt_point_io import QtPointIO
+from surforama.constants import (
+    NAPARI_NORMAL_0,
+    NAPARI_NORMAL_1,
+    NAPARI_NORMAL_2,
+    NAPARI_UP_0,
+    NAPARI_UP_1,
+    NAPARI_UP_2,
+    ROTATION,
+)
 
 def normalize_tomo(tomogram):
     # cut off percentile from 10 to 90
@@ -84,16 +95,6 @@ def display_scores(viewer, mesh_data, points, faces):
         )
 
 
-from surforama.gui.qt_point_io import QtPointIO
-from surforama.constants import (
-    NAPARI_NORMAL_0,
-    NAPARI_NORMAL_1,
-    NAPARI_NORMAL_2,
-    NAPARI_UP_0,
-    NAPARI_UP_1,
-    NAPARI_UP_2,
-    ROTATION,
-)
 
 
 def initialize_points(
@@ -101,7 +102,7 @@ def initialize_points(
     point_coordinates,
     point_size=5.0,
 ):
-    import numpy as np
+    
 
     normal_data, up_data = point_io._assign_orientations_from_nearest_triangles(
         point_coordinates=point_coordinates
@@ -227,8 +228,6 @@ def display_surforama_without_widget(
     tomo_data = viewer.layers["tomogram"].data
 
     if normal_offset != 0.0:
-        import trimesh
-
         mesh = trimesh.Trimesh(vertices=points, faces=faces)
         normals = mesh.vertex_normals
         color_points = points + normal_offset * normals
@@ -244,15 +243,8 @@ def display_surforama_without_widget(
     colors = cmap(surforama_values)[
         :, :3
     ]  # Get RGB values and discard the alpha channel
-    surface_layer_proj = viewer.add_surface(
+    _ = viewer.add_surface(
         (points, faces), name="Projections", shading="none", vertex_colors=colors
     )
     return value_range
 
-    # volume_layer = display_tomo(viewer, mesh_data, tomogram_path)
-    # pixel_size = get_pixel_size(mesh_data, pixel_size)
-    # points, faces = get_points_and_faces(mesh_data, pixel_size)
-    # display_scores(viewer, mesh_data, points, faces)
-    # display_cluster_centers_as_points(viewer, mesh_data, pixel_size)
-    # display_input_normal_values(viewer, mesh_data, points, faces)
-    # return volume_layer

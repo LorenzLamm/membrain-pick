@@ -4,7 +4,7 @@ import torch
 from torch.optim import Adam, SGD
 
 from membrain_pick.networks.diffusion_net import DiffusionNet
-from membrain_pick.optimization.mean_shift_utils import MeanShiftForwarder
+from membrain_pick.clustering.mean_shift_utils import MeanShiftForwarder
 from membrain_pick.optimization.mean_shift_losses import MeanShift_loss
 from membrain_pick.optimization.optim_utils import weighted_MSELoss, CombinedLoss
 from torch.optim.lr_scheduler import StepLR, CosineAnnealingWarmRestarts, ReduceLROnPlateau, LambdaLR

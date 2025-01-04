@@ -1,2 +1,2 @@
 """Empty init."""
-from .mesh_conversion_cli import cli  # noqa: F401
+from .cli.cli import cli  # noqa: F401

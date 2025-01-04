@@ -521,7 +521,7 @@ def mean_shift_for_csv(
     -------
     membrain-pick mean_shift --csv-path <path-to-your-csv> --out-dir <path-to-store-output>
     """
-    from membrain_pick.mean_shift_inference import (
+    from src.membrain_pick.clustering.mean_shift_inference import (
         mean_shift_for_csv as _mean_shift_for_csv,
     )
 

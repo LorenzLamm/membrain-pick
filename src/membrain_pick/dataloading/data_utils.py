@@ -29,46 +29,136 @@ def convert_to_torch(data_dict: dict) -> dict:
             out_dict[key] = data_dict[key]
     return out_dict
 
-def get_csv_data(csv_path, delimiter=",", with_header=False, return_header=False):
+
+def get_csv_data(
+    csv_path: str,
+    delimiter: str = ",",
+    with_header: bool = False,
+    return_header: bool = False,
+) -> np.ndarray:
+    """
+    Reads CSV data into a numpy array.
+
+    Parameters
+    ----------
+    csv_path : str
+        Path to the CSV file.
+    delimiter : str, optional
+        Delimiter used in the CSV file, by default ",".
+    with_header : bool, optional
+        Whether to include the header in the returned data, by default False.
+    return_header : bool, optional
+        Whether to return the header separately, by default False.
+
+    Returns
+    -------
+    np.ndarray
+        The data from the CSV file.
+    """
     # Read the CSV file into a DataFrame
     df = pd.read_csv(csv_path, delimiter=delimiter)
-    
+
     # If the user wants the header back
     if return_header:
         header = df.columns.values
         data = df.values
         return (data, header) if with_header else (np.vstack([header, data]), None)
-    
+
     # Return the data as a numpy array, with or without the header
     return df.values
 
 
-def store_array_in_csv(out_file, data, out_del=",", header=False):
+def store_array_in_csv(
+    out_file: str, data: np.ndarray, out_del: str = ",", header: bool = False
+) -> None:
+    """
+    Stores a numpy array in a CSV file.
+
+    Parameters
+    ----------
+    out_file : str
+        Path to the output CSV file.
+    data : np.ndarray
+        The data to store.
+    out_del : str, optional
+        Delimiter to use in the CSV file, by default ",".
+    header : bool, optional
+        Whether to include a header in the CSV file, by default False.
+
+    Returns
+    -------
+    None
+    """
     # Convert the numpy array to a DataFrame
     df = pd.DataFrame(data)
-    
+
     # Store the DataFrame in a CSV file
     df.to_csv(out_file, index=False, header=header, sep=out_del)
 
 
-def store_array_in_star(out_file, data, header=None):
-    header = header if header is not None else ["rlnCoordinateX", "rlnCoordinateY", "rlnCoordinateZ"]
+def store_array_in_star(out_file: str, data: np.ndarray, header: list = None) -> None:
+    """
+    Stores a numpy array in a STAR file.
+
+    Parameters
+    ----------
+    out_file : str
+        Path to the output STAR file.
+    data : np.ndarray
+        The data to store.
+    header : list, optional
+        The header for the STAR file, by default ["rlnCoordinateX", "rlnCoordinateY", "rlnCoordinateZ"].
+
+    Returns
+    -------
+    None
+    """
+    header = (
+        header
+        if header is not None
+        else ["rlnCoordinateX", "rlnCoordinateY", "rlnCoordinateZ"]
+    )
     df = pd.DataFrame(data, columns=header)
     starfile.write(df, out_file)
 
+
 def read_star_file(star_file):
+    """
+    Reads data from a STAR file.
+
+    Parameters
+    ----------
+    star_file : str
+        Path to the STAR file.
+
+    Returns
+    -------
+    pd.DataFrame
+        The data from the STAR file.
+    """
     return starfile.read(star_file)
 
 
 def store_array_in_npy(out_file, data):
+    """
+    Stores a numpy array in an NPY file.
+
+    Parameters
+    ----------
+    out_file : str
+        Path to the output NPY file.
+    data : np.ndarray
+        The data to store.
+
+    Returns
+    -------
+    None
+    """
     # Save the numpy array in an npy file
     np.save(out_file, data)
 
 
-def store_mesh_in_hdf5(out_file: str,
-                          points: np.ndarray,
-                            faces: np.ndarray,
-                            **kwargs):
+def store_mesh_in_hdf5(out_file: str, points: np.ndarray, faces: np.ndarray, **kwargs):
     """
     Store mesh data in an HDF5 file.
 
@@ -89,7 +179,6 @@ def store_mesh_in_hdf5(out_file: str,
     Returns
     -------
     None
-        This function does not return a value.
     """
 
     with h5py.File(out_file, "w") as f:
@@ -99,7 +188,7 @@ def store_mesh_in_hdf5(out_file: str,
             if value is not None:
                 if isinstance(value, str):
                     # Convert string to numpy array of variable-length UTF-8 strings
-                    dt = h5py.string_dtype(encoding='utf-8')
+                    dt = h5py.string_dtype(encoding="utf-8")
                     f.create_dataset(key, data=np.array(value, dtype=dt))
                 else:
                     f.create_dataset(key, data=value)
@@ -130,7 +219,7 @@ def store_point_and_vectors_in_vtp(
     out_path: str,
     in_points: np.ndarray,
     in_vectors: np.ndarray = None,
-    in_scalars: np.ndarray = None, 
+    in_scalars: np.ndarray = None,
 ):
     """
     Store points and, optionally, their associated vectors into a VTP file.
@@ -184,7 +273,7 @@ def store_point_and_vectors_in_vtp(
         if not isinstance(in_scalars, list) and not isinstance(in_scalars, tuple):
             in_scalars = [in_scalars]
         for i, cur_scalars in enumerate(in_scalars):
-            scalars = vtk.vtkFloatArray() 
+            scalars = vtk.vtkFloatArray()
             scalars.SetName("Scalars%d" % i)
             for scalar in cur_scalars:
                 scalars.InsertNextValue(scalar)
@@ -198,13 +287,30 @@ def store_point_and_vectors_in_vtp(
         print(error_msg)
 
 
-def read_GT_data_membranorama_xml(gt_file_name, return_orientation=False):
+def read_GT_data_membranorama_xml(
+    gt_file_name: str, return_orientation: bool = False
+) -> dict:
+    """
+    Reads ground truth data from a Membranorama XML file.
+
+    Parameters
+    ----------
+    gt_file_name : str
+        Path to the XML file.
+    return_orientation : bool, optional
+        Whether to return orientation data, by default False.
+
+    Returns
+    -------
+    dict
+        A dictionary containing the position data, and optionally the orientation data.
+    """
     pos_dict = {}
     orientation_dict = {}
     tree = ET.parse(gt_file_name)
     root = tree.getroot()
     for i, elem in enumerate(root):
-        if elem.tag == 'PointGroups':
+        if elem.tag == "PointGroups":
             coords_id = i
             break
     point_groups = root[coords_id]
@@ -212,23 +318,30 @@ def read_GT_data_membranorama_xml(gt_file_name, return_orientation=False):
         positions = np.zeros((0, 3))
         orientations = np.zeros((0, 3))
         for point in particle_group:
-            cur_pos = np.expand_dims(np.array(point.attrib['Position'].split(','), dtype=float), 0)
+            cur_pos = np.expand_dims(
+                np.array(point.attrib["Position"].split(","), dtype=float), 0
+            )
             positions = np.concatenate((positions, cur_pos), 0)
             if return_orientation:
-                cur_orientation = np.expand_dims(np.array(point.attrib['Orientation'].split(','), dtype=float), 0)
+                cur_orientation = np.expand_dims(
+                    np.array(point.attrib["Orientation"].split(","), dtype=float), 0
+                )
                 orientations = np.concatenate((orientations, cur_orientation), 0)
 
-
-        store_token = particle_group.attrib['Name']
+        store_token = particle_group.attrib["Name"]
         if store_token not in pos_dict.keys():
             pos_dict[store_token] = np.zeros((0, 3))
-        pos_dict[store_token] = np.concatenate((pos_dict[store_token], positions), axis=0)
+        pos_dict[store_token] = np.concatenate(
+            (pos_dict[store_token], positions), axis=0
+        )
 
         if return_orientation:
             orientations = np.rad2deg(orientations)
             if store_token not in orientation_dict.keys():
                 orientation_dict[store_token] = np.zeros((0, 3))
-            orientation_dict[store_token] = np.concatenate((orientation_dict[store_token], orientations), axis=0)
+            orientation_dict[store_token] = np.concatenate(
+                (orientation_dict[store_token], orientations), axis=0
+            )
 
     if return_orientation:
         return pos_dict, orientation_dict

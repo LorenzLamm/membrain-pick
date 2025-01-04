@@ -4,20 +4,17 @@ from scipy.ndimage import zoom
 
 from membrain_seg.segmentation.dataloading.data_utils import (
     load_tomogram,
-    store_tomogram,
 )
 from membrain_pick.dataloading.data_utils import (
-    store_array_in_csv,
-    store_point_and_vectors_in_vtp,
     store_mesh_in_hdf5,
 )
-from membrain_pick.compute_mesh_projection import (
+from membrain_pick.mesh_projections.compute_mesh_projection import (
     convert_seg_to_evenly_spaced_mesh,
     compute_values_along_normals,
 )
-from membrain_pick.mesh_class import Mesh
+from membrain_pick.mesh_projections.mesh_class import Mesh
 
-from membrain_pick.mesh_projection_utils import (
+from membrain_pick.mesh_projections.mesh_projection_utils import (
     get_connected_components,
     get_cropped_arrays,
     get_normals_from_face_order,
@@ -70,7 +67,7 @@ def load_data(
 
 def get_sub_segment(
     seg: np.ndarray, k: int, tomo: np.ndarray, crop_box_flag: bool
-) -> tuple[np.ndarray, np.ndarray]:
+) :
     """
     Process a sub-segment of the segmentation data.
 
@@ -166,7 +163,7 @@ def convert_to_mesh(
     tomo: np.ndarray = None,
     only_obj: bool = False,
     token: str = None,
-    step_numbers: tuple[int, int] = (-6, 7),
+    step_numbers = (-6, 7),
     step_size: float = 2.5,
     mesh_smoothing: int = 1000,
     barycentric_area: float = 1.0,

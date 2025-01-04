@@ -1,8 +1,7 @@
-import torch 
+import torch
 
 from membrain_pick.networks.diffusion_net import DiffusionNet, DiffusionNetBlock
-from membrain_pick.optimization.mean_shift_utils import MeanShiftForwarder
-from membrain_pick.networks import diffusion_net
+from membrain_pick.clustering.mean_shift_utils import MeanShiftForwarder
 
 # from membrain_pick.networks.diffusion_net.ms_GPU_orig import MeanShiftEuc
 # from torch_geometric.nn.pool import fps
@@ -15,7 +14,10 @@ from sklearn.neighbors import NearestNeighbors
 
 import torch
 
-def farthest_point_sampling_single(point_cloud: torch.Tensor, num_samples: int) -> torch.Tensor:
+
+def farthest_point_sampling_single(
+    point_cloud: torch.Tensor, num_samples: int
+) -> torch.Tensor:
     """
     Perform Farthest Point Sampling on a single point cloud.
 
@@ -48,7 +50,9 @@ def farthest_point_sampling_single(point_cloud: torch.Tensor, num_samples: int) 
     return centroids
 
 
-def find_points_within_radius(point_cloud: torch.Tensor, centers_indices: torch.Tensor, radius: float) -> torch.Tensor:
+def find_points_within_radius(
+    point_cloud: torch.Tensor, centers_indices: torch.Tensor, radius: float
+) -> torch.Tensor:
     """
     Find all points within a specified radius from each center (farthest point).
 
@@ -71,22 +75,29 @@ def find_points_within_radius(point_cloud: torch.Tensor, centers_indices: torch.
 
     """
     centers = point_cloud[centers_indices]  # Extract the centers using their indices
-    squared_radius = radius ** 2
+    squared_radius = radius**2
 
     # Calculate squared distances from each center to all points
     # Broadcasting allows us to subtract each center from all points in the point cloud
-    dist_squared = torch.sum((centers[:, None, :] - point_cloud[None, :, :]) ** 2, dim=2)
+    dist_squared = torch.sum(
+        (centers[:, None, :] - point_cloud[None, :, :]) ** 2, dim=2
+    )
 
     # Determine which points are within the radius for each center
     within_radius_masks = dist_squared <= squared_radius
 
     # Extract indices of points within the radius for each center
-    points_within_radius = [torch.nonzero(within_radius_masks[i], as_tuple=False).squeeze(1) for i in range(centers.size(0))]
+    points_within_radius = [
+        torch.nonzero(within_radius_masks[i], as_tuple=False).squeeze(1)
+        for i in range(centers.size(0))
+    ]
 
     return points_within_radius
 
 
-def find_nearest_points(point_cloud: torch.Tensor, centers_indices: torch.Tensor, N: int) -> torch.Tensor:
+def find_nearest_points(
+    point_cloud: torch.Tensor, centers_indices: torch.Tensor, N: int
+) -> torch.Tensor:
     """
     Find N nearest points to each center.
 
@@ -111,7 +122,9 @@ def find_nearest_points(point_cloud: torch.Tensor, centers_indices: torch.Tensor
 
     # Calculate squared distances from each center to all points
     # Broadcasting allows us to subtract each center from all points in the point cloud
-    dist_squared = torch.sum((centers[:, None, :] - point_cloud[None, :, :]) ** 2, dim=2)
+    dist_squared = torch.sum(
+        (centers[:, None, :] - point_cloud[None, :, :]) ** 2, dim=2
+    )
 
     # Find indices of the N closest points for each center
     nearest_points_indices = torch.topk(dist_squared, N, largest=False, sorted=True)[1]
@@ -128,17 +141,48 @@ class DiffusionNet_MSProposal(DiffusionNet):
     r"""
     Network for multi-scale proposal generation.
     """
-    def __init__(self, C_in, C_out, C_width=128, N_block=4, last_activation=None, outputs_at='vertices', mlp_hidden_dims=None, dropout=True, 
-                       with_gradient_features=True, with_gradient_rotations=True, diffusion_method='spectral', lstm_first=False, mean_shift_clustering=False, ms_bandwidth=0.1, device="cuda:0"):
-        super().__init__(C_in, C_out=16, C_width=C_width, N_block=N_block, last_activation=last_activation, outputs_at=outputs_at, mlp_hidden_dims=mlp_hidden_dims, dropout=dropout, 
-                       with_gradient_features=with_gradient_features, with_gradient_rotations=with_gradient_rotations, diffusion_method=diffusion_method, lstm_first=lstm_first, mean_shift_clustering=False, ms_bandwidth=ms_bandwidth, device=device)
-        
+
+    def __init__(
+        self,
+        C_in,
+        C_out,
+        C_width=128,
+        N_block=4,
+        last_activation=None,
+        outputs_at="vertices",
+        mlp_hidden_dims=None,
+        dropout=True,
+        with_gradient_features=True,
+        with_gradient_rotations=True,
+        diffusion_method="spectral",
+        lstm_first=False,
+        mean_shift_clustering=False,
+        ms_bandwidth=0.1,
+        device="cuda:0",
+    ):
+        super().__init__(
+            C_in,
+            C_out=16,
+            C_width=C_width,
+            N_block=N_block,
+            last_activation=last_activation,
+            outputs_at=outputs_at,
+            mlp_hidden_dims=mlp_hidden_dims,
+            dropout=dropout,
+            with_gradient_features=with_gradient_features,
+            with_gradient_rotations=with_gradient_rotations,
+            diffusion_method=diffusion_method,
+            lstm_first=lstm_first,
+            mean_shift_clustering=False,
+            ms_bandwidth=ms_bandwidth,
+            device=device,
+        )
+
         ms_bandwidth = 0.1
         self.ms_bandwidth = ms_bandwidth
-        self.ms_region_proposal = MeanShiftForwarder(ms_bandwidth, 
-                                                     num_seeds=None, 
-                                                     max_iter=10,
-                                                     device=device)
+        self.ms_region_proposal = MeanShiftForwarder(
+            ms_bandwidth, num_seeds=None, max_iter=10, device=device
+        )
         self.combine_distance = 0.01 * ms_bandwidth
 
         self.point_block = DiffusionNetBlock(
@@ -154,25 +198,40 @@ class DiffusionNet_MSProposal(DiffusionNet):
         self.post_mlp1 = torch.nn.Linear(512, 64)
         self.post_mlp2 = torch.nn.Linear(64, 16)
         self.post_mlp3 = torch.nn.Linear(16, 3)
-        
-    def forward(self, x_in, mass, L=None, evals=None, evecs=None, gradX=None, gradY=None, edges=None, faces=None):
+
+    def forward(
+        self,
+        x_in,
+        mass,
+        L=None,
+        evals=None,
+        evecs=None,
+        gradX=None,
+        gradY=None,
+        edges=None,
+        faces=None,
+    ):
         r"""
         Forward pass of the network.
         """
         out = super().forward(x_in, mass, L, evals, evecs, gradX, gradY, edges, faces)
         # self.point_block(out, mass, L, evals, evecs, gradX, gradY)
         from time import time
+
         start = time()
-        
+
         fps_num = 50
         fps_out = farthest_point_sampling_single(out[:, :3], fps_num)
-        points_with_rad = find_points_within_radius(out[:, :3], fps_out, self.ms_bandwidth * 2)
+        points_with_rad = find_points_within_radius(
+            out[:, :3], fps_out, self.ms_bandwidth * 2
+        )
         points_closest_N = find_nearest_points(out[:, :3], fps_out, 32)
 
         closest_points_features = out[points_closest_N]
-        closest_points_features = torch.reshape(closest_points_features, (closest_points_features.shape[0], -1))
-        
-        
+        closest_points_features = torch.reshape(
+            closest_points_features, (closest_points_features.shape[0], -1)
+        )
+
         points_shift1 = self.post_mlp1(closest_points_features)
         points_shift2 = self.post_mlp2(points_shift1)
         points_shift3 = self.post_mlp3(points_shift2)
@@ -180,13 +239,12 @@ class DiffusionNet_MSProposal(DiffusionNet):
         points_out = out[fps_out][:, :3] + points_shift3
         return out, points_out
 
-
         print(closest_points_features.shape)
         print(points_closest_N.shape)
         exit()
         fps_array = torch.cat()
         print(fps_array.shape)
-        
+
         exit()
 
         fps_out = out[fps_out]
@@ -200,7 +258,6 @@ class DiffusionNet_MSProposal(DiffusionNet):
         # edges = edges.to(self.device)
         faces = faces.to(self.device)
 
-
         shifts = []
         print()
 
@@ -213,22 +270,22 @@ class DiffusionNet_MSProposal(DiffusionNet):
             print(i, "/", len(points_with_rad))
             points = points.to(self.device)
 
-            
             points = torch.arange(out.shape[0])
             cur_points = out[points]
             print(points.shape)
             print(fps_out.shape)
 
             exit()
-            cur_points = torch.cat(fps_out, )
-
-            
+            cur_points = torch.cat(
+                fps_out,
+            )
 
             # cur_shift = self.point_block(cur_points, cur_mass, cur_L, cur_evals, cur_evecs, cur_gradX, cur_gradY, cur_edges, cur_faces)
-            cur_shift = self.point_block(cur_points, cur_mass, cur_L, cur_evals, cur_evecs, cur_gradX, cur_gradY)
+            cur_shift = self.point_block(
+                cur_points, cur_mass, cur_L, cur_evals, cur_evecs, cur_gradX, cur_gradY
+            )
             shifts.append(cur_shift)
-            
-            
+
         # print(fps_out)
         # print(fps_out)
         exit()
@@ -250,4 +307,3 @@ class DiffusionNet_MSProposal(DiffusionNet):
         #         unique[i] = 1  # leave the current point as unique
         # cluster_centers = unique_centers[unique]
         return cluster_centers
-
