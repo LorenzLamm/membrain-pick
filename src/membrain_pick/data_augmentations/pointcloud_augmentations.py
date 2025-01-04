@@ -1,4 +1,4 @@
-from membrain_pick.dataloading.pointcloud_transforms import (
+from membrain_pick.data_augmentations.pointcloud_transforms import (
     RandomGaussianSmoothing,
     RandomBrightnessGradient,
     RandomErasing,
@@ -9,7 +9,6 @@ from membrain_pick.dataloading.pointcloud_transforms import (
     RandomFeatureScaleWithStatsInversion,
     RandomFeatureShift,
     RandomLocalBrightnessGamma,
-    RandomMedianSmoothing,
     RandomSmoothPointFeatures,
     AnyAugmentation,
     NormalizeFeatures,

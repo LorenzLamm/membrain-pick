@@ -1,17 +1,12 @@
 from membrain_pick.dataloading.data_utils import (
     get_csv_data,
-    store_array_in_csv,
-    store_array_in_npy,
-    store_point_and_vectors_in_vtp,
     store_array_in_star,
 )
-from membrain_pick.optimization.mean_shift_utils import MeanShiftForwarder
-from membrain_pick.mean_shift_membrainv1 import MeanShift_clustering
+from membrain_pick.clustering.mean_shift_utils import MeanShiftForwarder
 import numpy as np
 import torch
 import os
 import trimesh
-from scipy.spatial import distance_matrix
 from membrain_pick.orientation import orientation_from_mesh
 
 
@@ -25,9 +20,6 @@ def mean_shift_for_scores(
     score_threshold: float = 9.0,
 ):
 
-    # ms_forwarder = MeanShift_clustering(pos_thres=score_threshold)
-    # clusters, cluster_labels = ms_forwarder.cluster_NN_output(positions, scores, bandwidth=bandwidth)
-    # return clusters, cluster_labels
 
     ms_forwarder = MeanShiftForwarder(
         bandwidth=bandwidth, max_iter=max_iter, device=device, margin=margin
@@ -74,21 +66,7 @@ def store_clusters(
     faces: np.ndarray = None,
 ):
     os.makedirs(out_dir, exist_ok=True)
-    # store_array_in_csv(
-    #     out_file=os.path.join(out_dir, os.path.basename(csv_file).replace('.csv', '_clusters.csv')),
-    #     data=out_pos, header=["x", "y", "z"]
-    # )
-    # store_array_in_npy(
-    #     out_file=os.path.join(out_dir, os.path.basename(csv_file).replace('.csv', '_clusters.npy')),
-    #     data=out_pos
-    # )
-    # store_point_and_vectors_in_vtp(
-    #     out_path=os.path.join(out_dir, os.path.basename(csv_file).replace('.csv', '_clusters.vtp')),
-    #     in_points=out_pos,
-    #     in_scalars=[out_p_num, np.arange(out_pos.shape[0])],
-    # )
-    print(out_pos.shape, "clusters found")
-    print(verts.shape, faces.shape, "<-----")
+    print("Clustering found", out_pos.shape[0], "clusters.")
     mesh = trimesh.Trimesh(vertices=verts, faces=faces)
     if out_pos.shape[0] != 0:
         relion_euler_angles = orientation_from_mesh(out_pos, mesh)

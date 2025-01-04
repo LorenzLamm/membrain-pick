@@ -1,10 +1,8 @@
 import os
 from tqdm import tqdm
 
-import h5py
 import torch
 import numpy as np
-import pytorch_lightning as pl
 
 from membrain_pick.dataloading.diffusionnet_datamodule import (
     MemSegDiffusionNetDataModule,
@@ -12,17 +10,16 @@ from membrain_pick.dataloading.diffusionnet_datamodule import (
 from membrain_pick.optimization.diffusion_training_pylit import DiffusionNetModule
 
 from membrain_pick.dataloading.data_utils import (
-    store_array_in_csv,
-    store_array_in_npy,
-    store_point_and_vectors_in_vtp,
     store_mesh_in_hdf5,
 )
-from membrain_pick.mean_shift_inference import mean_shift_for_scores, store_clusters
+from membrain_pick.clustering.mean_shift_inference import (
+    mean_shift_for_scores,
+    store_clusters,
+)
 
 
 def save_output(cur_mb_data, out_dir, mb_token):
     out_file_csv = os.path.join(out_dir, f"{mb_token}.csv")
-    out_file_vtp = os.path.join(out_dir, f"{mb_token}.vtp")
 
     all_verts = np.concatenate(cur_mb_data["verts"], axis=0)
     all_scores = np.concatenate(cur_mb_data["scores"], axis=0)
@@ -53,22 +50,6 @@ def save_output(cur_mb_data, out_dir, mb_token):
         unique_labels[i] = all_labels[indices[0]]
         unique_features[i] = all_features[indices[0]]
 
-    # store_array_in_csv(
-    #     out_file_csv,
-    #     np.concatenate((unique_verts, np.expand_dims(unique_scores, axis=1)), axis=1),
-    #     header=["x", "y", "z", "score"],
-    # )
-    # store_array_in_npy(
-    #     out_file_csv.replace(".csv", ".npy"),
-    #     np.concatenate((unique_verts, np.expand_dims(unique_scores, axis=1)), axis=1),
-    # )
-    # store_point_and_vectors_in_vtp(
-    #     out_file_vtp,
-    #     unique_verts,
-    #     in_scalars=[unique_labels, unique_scores]
-    #     + [unique_features[:, i] for i in range(0, unique_features.shape[1])],
-    # )
-
     return unique_verts, unique_scores, out_file_csv, unique_labels, new_faces
 
 
@@ -94,21 +75,6 @@ def save_output_h5(
         tomo_file=tomo_file,
         pixel_size=pixel_size,
     )
-    # with h5py.File(out_file_h5, 'w') as h5file:
-    #     # Save unique vertices
-    #     h5file.create_dataset('verts', data=unique_verts)
-
-    #     # Save unique scores
-    #     h5file.create_dataset('scores', data=unique_scores)
-
-    #     # Save unique labels
-    #     h5file.create_dataset('labels', data=unique_labels)
-
-    #     if cluster_centers is not None:
-    #         # Save cluster centers if provided
-    #         h5file.create_dataset('cluster_centers', data=cluster_centers)
-
-    #     h5file.create_dataset('tomo_file', data=np.string_(tomo_file))
 
 
 def predict(
@@ -211,7 +177,6 @@ def predict(
         cur_mb_nr = batch["mb_idx"]
         mb_token = batch["mb_token"]
         tomo_file = batch["tomo_file"]
-        labels = batch["label"]
         if cur_mb_nr != prev_mb_nr:
             verts_count = 0
         faces = batch["faces"] + verts_count

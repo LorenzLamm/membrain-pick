@@ -5,7 +5,7 @@ import imageio as io
 import numpy as np
 from torch.utils.data import Dataset
 
-from membrain_seg.segmentation.dataloading.data_utils import read_nifti, load_tomogram, get_csv_data
+from membrain_seg.segmentation.dataloading.data_utils import load_tomogram, get_csv_data
 from membrain_seg.segmentation.dataloading.memseg_augmentation import (
     get_training_transforms,
     get_validation_transforms,

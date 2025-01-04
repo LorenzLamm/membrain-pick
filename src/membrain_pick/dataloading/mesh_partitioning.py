@@ -5,7 +5,7 @@ This module contains the implementation of the mesh partitioning functionalities
 import os
 import numpy as np
 import hashlib
-from typing import List, Tuple, Optional, Dict, Any
+from typing import List, Tuple, Optional, Dict
 from scipy.spatial import cKDTree
 import potpourri3d as pp3d
 from tqdm import tqdm

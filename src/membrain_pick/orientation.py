@@ -10,7 +10,7 @@ from membrain_pick.dataloading.data_utils import (
     store_array_in_csv,
     store_array_in_star,
 )
-from membrain_pick.compute_mesh_projection import convert_seg_to_mesh
+from membrain_pick.mesh_projections.compute_mesh_projection import convert_seg_to_mesh
 from membrain_seg.segmentation.dataloading.data_utils import load_tomogram
 
 

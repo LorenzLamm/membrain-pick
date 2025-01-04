@@ -2,7 +2,7 @@ import os
 import numpy as np
 
 from membrain_seg.segmentation.dataloading.data_utils import load_tomogram
-from membrain_pick.mesh_projection import convert_to_mesh
+from membrain_pick.mesh_projections.mesh_projection import convert_to_mesh
 
 
 def meshes_for_folder_structure(

@@ -12,8 +12,6 @@ from sklearn.neighbors import KDTree
 
 
 
-
-
 def project_points_to_nearest_hyperplane(points, candiate_points):
     print("Projecting points to nearest hyperplane.")
     # Find nearest three points for each point

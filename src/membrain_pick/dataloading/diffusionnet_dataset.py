@@ -5,10 +5,8 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 
-from membrain_seg.segmentation.dataloading.data_utils import get_csv_data
-
 from scipy.spatial import KDTree
-from membrain_pick.dataloading.pointcloud_augmentations import (
+from membrain_pick.data_augmentations.pointcloud_augmentations import (
     get_test_transforms,
     get_training_transforms,
 )
@@ -223,8 +221,6 @@ class MemSegDiffusionNetDataset(Dataset):
                 axis=1,
             )
         else:
-            # center_feature_start = (idx_dict["membrane"][:, 3:].shape[1] - 16) // 2
-            # center_feature_start += 3
             center_feature_start = (
                 3  # this will run through all start indices and average the results
             )
@@ -406,69 +402,6 @@ class MemSegDiffusionNetDataset(Dataset):
         # Get current training split
         self._train_split()
 
-    # def initialize_csv_paths(self) -> None: #TODO: Remove function
-    #     """
-    #     Initializes the list of paths to data-label pairs.
-    #     """
-
-    #     self.data_paths = []
-
-    #     candidate_files = (os.listdir(self.csv_folder) if not self.is_single_mb else [self.csv_folder])
-    #     for filename in candidate_files:
-    #         # if not filename.startswith("T17S1M13") and not filename.startswith("T17S1M11"):# and not filename.startswith("T17S2M5") and not filename.startswith("T17S1M7") and not filename.startswith("T17S1M10"):
-    #         #     continue
-    #         if filename.endswith("data.csv"):
-    #             if "T17S2M5" in filename: # corrupt file
-    #                 continue
-    #             if self.test_mb is not None:
-    #                 if self.test_mb not in filename:
-    #                     continue
-    #             self.data_paths.append(filename)
-
-    #     self.data_paths.sort()
-
-    #     if not self.is_single_mb:
-    #         if not self.allpos:
-    #             self.data_paths = [
-    #                 (os.path.join(self.csv_folder, filename),
-    #                 [os.path.join(self.csv_folder, filename[:-14] + "_psii_pos.csv") if self.use_psii else None,
-    #                     os.path.join(self.csv_folder, filename[:-14] + "_b6f_pos.csv") if self.use_b6f else None,
-    #                     os.path.join(self.csv_folder, filename[:-14] + "_uk_pos.csv") if self.use_uk else None],
-    #                 os.path.join(self.csv_folder, filename[:-14] + "_mesh_faces.csv"),
-    #                 os.path.join(self.csv_folder, filename[:-14] + "_mesh_normals.csv"),)
-    #                 for filename in self.data_paths
-    #             ]
-    #         else:
-    #             self.data_paths = [
-    #                 (os.path.join(self.csv_folder, filename),
-    #                 os.path.join(self.csv_folder, filename[:-14] + "_all_pos.csv"),
-    #                 os.path.join(self.csv_folder, filename[:-14] + "_mesh_faces.csv"),
-    #                 os.path.join(self.csv_folder, filename[:-14] + "_mesh_normals.csv"),)
-    #                 for filename in self.data_paths
-    #         ]
-    #     else:
-    #         self.data_paths = [
-    #             (filename,
-    #              filename[:-14] + "_psii_pos.csv",
-    #              filename[:-14] + "_mesh_faces.csv",
-    #              filename[:-14] + "_mesh_normals.csv")
-    #         ]
-    #     if self.train:
-    #         self.data_paths = self.data_paths[:int(len(self.data_paths) * self.train_pct)]
-    #     else:
-    #         self.data_paths = self.data_paths[int(len(self.data_paths) * self.train_pct):]
-
-    # def _precompute_operators(self,
-    #                            overwrite_cache_flag=False):
-    #     get_all_operators(
-    #         verts_list = self.part_verts,
-    #         faces_list = self.part_faces,
-    #         k_eig = self.diffusion_operator_params["k_eig"],
-    #         op_cache_dir = self.diffusion_operator_params["cache_dir"],
-    #         normals = self.part_normals,
-    #         overwrite_cache_flag = overwrite_cache_flag
-    #     )
-
     def _convert_to_diffusion_input(self, idx_dict, overwrite_cache_flag=False):
 
         faces = idx_dict["faces"]
@@ -574,10 +507,3 @@ class MemSegDiffusionNetDataset(Dataset):
                 color=idx_dict["membrane"][:, 7][mask],
                 s=50,
             )
-            # print(np.unique(idx_dict["label"]))
-            # make_2D_projection_scatter_plot(
-            #     out_file=os.path.join(out_dir, "test%d_%d_lab.png" % (idx, k)),
-            #     point_cloud=idx_dict["membrane"][:, :3][mask],
-            #     color=idx_dict["label"][:][mask],
-            #     s=7
-            # )

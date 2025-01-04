@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.ndimage import label
-from membrain_pick.bbox_utils import get_expanded_bounding_box, crop_array_with_bounding_box
+from membrain_pick.mesh_projections.bbox_utils import get_expanded_bounding_box, crop_array_with_bounding_box
 
 
 def remove_unused_vertices(points, faces, point_normals):

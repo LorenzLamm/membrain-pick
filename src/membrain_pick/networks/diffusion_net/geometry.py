@@ -1,3 +1,8 @@
+"""
+The diffusionnet architecture and code is based on the following Github repository:
+https://github.com/nmwsharp/diffusion-net/
+"""
+
 import scipy
 import scipy.sparse.linalg as sla
 # ^^^ we NEED to import scipy before torch, or it crashes :(
