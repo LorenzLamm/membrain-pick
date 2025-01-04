@@ -65,3 +65,25 @@ predict_output
 Once the prediction is finished, you can use the predicted particle positions to perform further analysis, e.g. subtomogram averaging, or extract some statistics using [MemBrain-stats](https://github.com/LorenzLamm/membrain-stats/tree/main/src/membrain_stats). 
 
 Before doing further analysis, it is highly recommended to first look at the predicted particle positions in surforama to check if the prediction was successful. You can find instructions on how to do that in the [MemBrain-pick surforama documentation](Surforama_Inspection.md).
+
+
+## Alternative: run clustering on a precomputed distance map
+If you have already computed the distance maps and want to run the clustering step only (e.g. when you didn't specify the `--mean-shift-output` option during prediction, or you would like to change clustering parameters), you can use the following command:
+```bash
+membrain_pick mean_shift --h5-path <path-to-your-h5> --out-dir <path-to-store-output> --bandwidth <bandwidth> 
+```
+
+This command will cluster the distance map stored in the given .h5 file. The following options are available:
+- `--h5-path`: Path to the .h5 file. (required)
+- `--out-dir`: Path to the folder where the output should be stored. (default: `./mean_shift_output`)
+- `--bandwidth`: Bandwidth for the mean shift. (default: `7.0`)
+- `--max-iter`: Maximum number of iterations for the mean shift. (default: `150`)
+- `--margin`: Margin for the mean shift. (default: `0.0`)
+- `--score-threshold`: Score threshold for the mean shift. (default: `9.0`)
+- `--method`: Method to use for the mean shift. Choose from `membrain_pick` or `membrainv1`. (default: `membrain_pick`)
+- `--device`: Device to use for the mean shift. (default: `cuda:0`)
+- `--help`: Show this message and exit.
+
+
+### Note:
+The `--method` option is used to specify which version of the mean shift algorithm to use. The `membrain_pick` method is the default and recommended method. The `membrainv1` method can be a good alternative if you run into any memory issues with the default method. However, the `membrainv1` method is slower and might produce slightly different results.
