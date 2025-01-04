@@ -79,9 +79,49 @@ def predict(
     )
 
 
+# @cli.command(name="mean_shift", no_args_is_help=True)
+# def mean_shift_for_csv(
+#     csv_path: str = Option(..., help="Path to the CSV file.", **PKWARGS),  # noqa: B008
+#     out_dir: str = Option(  # noqa: B008
+#         "./mean_shift_output",
+#         help="Path to the folder where the output should be stored.",
+#     ),
+#     bandwidth: float = Option(7.0, help="Bandwidth for the mean shift."),  # noqa: B008
+#     max_iter: int = Option(  # noqa: B008
+#         150, help="Maximum number of iterations for the mean shift."
+#     ),
+#     margin: float = Option(0.0, help="Margin for the mean shift."),  # noqa: B008
+#     score_threshold: float = Option(  # noqa: B008
+#         9.0, help="Score threshold for the mean shift."
+#     ),
+#     device: str = Option(  # noqa: B008
+#         "cuda:0", help="Device to use for the mean shift."
+#     ),
+# ):
+#     """Perform mean shift on the given CSV file.
+
+#     Example
+#     -------
+#     membrain-pick mean_shift --csv-path <path-to-your-csv> --out-dir <path-to-store-output>
+#     """
+#     from membrain_pick.clustering.mean_shift_inference import (
+#         mean_shift_for_csv as _mean_shift_for_csv,
+#     )
+
+#     _mean_shift_for_csv(
+#         csv_file=csv_path,
+#         out_dir=out_dir,
+#         bandwidth=bandwidth,
+#         max_iter=max_iter,
+#         margin=margin,
+#         score_threshold=score_threshold,
+#         device=device,
+#     )
+
+
 @cli.command(name="mean_shift", no_args_is_help=True)
-def mean_shift_for_csv(
-    csv_path: str = Option(..., help="Path to the CSV file.", **PKWARGS),  # noqa: B008
+def mean_shift_for_h5(
+    h5_path: str = Option(..., help="Path to the .h5 file.", **PKWARGS),  # noqa: B008
     out_dir: str = Option(  # noqa: B008
         "./mean_shift_output",
         help="Path to the folder where the output should be stored.",
@@ -94,6 +134,10 @@ def mean_shift_for_csv(
     score_threshold: float = Option(  # noqa: B008
         9.0, help="Score threshold for the mean shift."
     ),
+    method: str = Option(  # noqa: B008
+        "membrain_pick",
+        help="Method to use for the mean shift. Choose from 'membrain_pick' or 'membrainv1'.",
+    ),
     device: str = Option(  # noqa: B008
         "cuda:0", help="Device to use for the mean shift."
     ),
@@ -104,21 +148,20 @@ def mean_shift_for_csv(
     -------
     membrain-pick mean_shift --csv-path <path-to-your-csv> --out-dir <path-to-store-output>
     """
-    from src.membrain_pick.clustering.mean_shift_inference import (
-        mean_shift_for_csv as _mean_shift_for_csv,
+    from membrain_pick.clustering.mean_shift_inference import (
+        mean_shift_for_h5 as _mean_shift_for_h5,
     )
 
-    _mean_shift_for_csv(
-        csv_file=csv_path,
+    _mean_shift_for_h5(
+        h5_file=h5_path,
         out_dir=out_dir,
         bandwidth=bandwidth,
         max_iter=max_iter,
         margin=margin,
         score_threshold=score_threshold,
+        method=method,
         device=device,
     )
-
-
 
 
 @cli.command(name="assign_angles", no_args_is_help=True)
@@ -148,7 +191,6 @@ def assign_angles(
         help="Output format for the angles. Choose from RELION or STOPGAP.",
     ),
 ):
-    
     """Assign initial membrane alignment angles to the given positions.
 
     Example
