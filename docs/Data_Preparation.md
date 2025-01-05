@@ -14,7 +14,7 @@ Therefore, after generating the meshes, it makes sense to inspect the generated 
 Here is a schematic visualization of the normal vectors:
 
 <div style="text-align: center;">
-    <img src="https://private-user-images.githubusercontent.com/34575029/398803859-0df51395-d939-4b1f-8fcc-75db42865fc5.png?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3MzYwOTgwOTAsIm5iZiI6MTczNjA5Nzc5MCwicGF0aCI6Ii8zNDU3NTAyOS8zOTg4MDM4NTktMGRmNTEzOTUtZDkzOS00YjFmLThmY2MtNzVkYjQyODY1ZmM1LnBuZz9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNTAxMDUlMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjUwMTA1VDE3MjMxMFomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTE2MTU3MzFjYWE2OTYyYTNhOTk3MTE0MmMzN2NlMWQ0N2I2NDExM2NhNzkwMzU2MzRmY2UzNjlkYTA1YjUwZTImWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0In0.ik7vUGtmMRVnWeBz0WTKX7M6jlAqJePjt6RekbxvXNM" alt="stepsize_schematic" width="50%" />
+    <img src="https://github.com/user-attachments/assets/0df51395-d939-4b1f-8fcc-75db42865fc5" alt="stepsize_schematic" width="50%" />
 </div>
 
 ### Inputs
