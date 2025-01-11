@@ -10,6 +10,7 @@ from membrain_pick.dataloading.data_utils import (
 )
 from membrain_pick.mesh_projections.compute_mesh_projection import (
     convert_seg_to_evenly_spaced_mesh,
+    convert_seg_to_mesh_pymeshlab,
     compute_values_along_normals,
 )
 from membrain_pick.mesh_projections.mesh_class import Mesh
@@ -65,9 +66,7 @@ def load_data(
     return tomogram, seg, mb_key
 
 
-def get_sub_segment(
-    seg: np.ndarray, k: int, tomo: np.ndarray, crop_box_flag: bool
-) :
+def get_sub_segment(seg: np.ndarray, k: int, tomo: np.ndarray, crop_box_flag: bool):
     """
     Process a sub-segment of the segmentation data.
 
@@ -163,7 +162,7 @@ def convert_to_mesh(
     tomo: np.ndarray = None,
     only_obj: bool = False,
     token: str = None,
-    step_numbers = (-6, 7),
+    step_numbers=(-6, 7),
     step_size: float = 2.5,
     mesh_smoothing: int = 1000,
     barycentric_area: float = 1.0,
@@ -172,6 +171,7 @@ def convert_to_mesh(
     only_largest_component: bool = True,
     min_connected_size: float = 1e4,
     imod_meshing: bool = False,
+    pymeshlab_meshing: bool = False,
 ) -> None:
     """
     Converts segmentation data into a mesh format and stores it.
@@ -228,16 +228,22 @@ def convert_to_mesh(
             mb_key, only_largest_component, k, sub_seg_count, seg
         )
         cur_seg, cur_tomo = get_sub_segment(seg, k, tomo, crop_box_flag)
-
-        # This returns vertices in the new pixel size -- be careful!!
-        mesh = convert_seg_to_evenly_spaced_mesh(
-            seg=cur_seg,
-            smoothing=mesh_smoothing,
-            was_rescaled=rescale_seg,  # TODO: make adjustable
-            input_pixel_size=input_pixel_size,
-            barycentric_area=barycentric_area,
-            imod_meshing=imod_meshing,
-        )
+        if pymeshlab_meshing:
+            mesh = convert_seg_to_mesh_pymeshlab(
+                seg=cur_seg,
+                input_pixel_size=input_pixel_size,
+                barycentric_area=barycentric_area,
+            )
+        else:
+            # This returns vertices in the new pixel size -- be careful!!
+            mesh = convert_seg_to_evenly_spaced_mesh(
+                seg=cur_seg,
+                smoothing=mesh_smoothing,
+                was_rescaled=rescale_seg,  # TODO: make adjustable
+                input_pixel_size=input_pixel_size,
+                barycentric_area=barycentric_area,
+                imod_meshing=imod_meshing,
+            )
 
         points, faces, point_normals = get_normals_from_face_order(mesh)
         points, faces, point_normals = remove_unused_vertices(
