@@ -471,7 +471,7 @@ def get_operators(verts, faces, k_eig=128, op_cache_dir=None, normals=None, over
                 # If we're overwriting, or there aren't enough eigenvalues, just delete it; we'll create a new
                 # entry below more eigenvalues
                 if overwrite_cache: 
-                    print("  overwriting cache by request")
+                    # print("  overwriting cache by request")
                     os.remove(search_path)
                     break
                 
@@ -516,7 +516,7 @@ def get_operators(verts, faces, k_eig=128, op_cache_dir=None, normals=None, over
                 break
 
             except FileNotFoundError:
-                print("  cache miss -- constructing operators")
+                # print("  cache miss -- constructing operators")
                 break
             
             except Exception as E:

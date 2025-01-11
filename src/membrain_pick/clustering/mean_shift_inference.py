@@ -45,7 +45,6 @@ def mean_shift_for_scores(
         )
     else:
         raise ValueError("Unknown method for mean shift clustering.")
-    print("Found", out_pos.shape[0], "clusters.")
     return out_pos, out_p_num
 
 
