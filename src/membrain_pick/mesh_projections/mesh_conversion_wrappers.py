@@ -19,6 +19,7 @@ def meshes_for_folder_structure(
     only_largest_component=True,
     min_connected_size=1e4,
     imod_meshing=False,
+    pymeshlab_meshing=False,
 ):
     """
     This assumes the following folder structure:
@@ -108,6 +109,7 @@ def meshes_for_folder_structure(
             only_largest_component=only_largest_component,
             min_connected_size=min_connected_size,
             imod_meshing=imod_meshing,
+            pymeshlab_meshing=pymeshlab_meshing,
         )
 
 
@@ -127,6 +129,7 @@ def mesh_for_tomo_mb_folder(
     only_largest_component=True,
     min_connected_size=1e4,
     imod_meshing=False,
+    pymeshlab_meshing=False,
 ):
     """
     This function assumes the following folder structure:
@@ -184,6 +187,7 @@ def mesh_for_tomo_mb_folder(
             only_largest_component=only_largest_component,
             min_connected_size=min_connected_size,
             imod_meshing=imod_meshing,
+            pymeshlab_meshing=pymeshlab_meshing,
         )
 
 
@@ -203,6 +207,7 @@ def mesh_for_single_mb_file(
     only_largest_component=True,
     min_connected_size=1e4,
     imod_meshing=False,
+    pymeshlab_meshing=False,
 ):
     """ """
     os.makedirs(out_folder, exist_ok=True)
@@ -235,4 +240,5 @@ def mesh_for_single_mb_file(
         only_largest_component=only_largest_component,
         min_connected_size=min_connected_size,
         imod_meshing=imod_meshing,
+        pymeshlab_meshing=pymeshlab_meshing,
     )

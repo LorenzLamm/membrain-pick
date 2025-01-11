@@ -6,7 +6,6 @@ from .cli import OPTION_PROMPT_KWARGS as PKWARGS
 from .cli import cli
 
 
-
 @cli.command(name="convert_file", no_args_is_help=True)
 def convert_single_file(
     tomogram_path: str = Option(  # noqa: B008
@@ -42,6 +41,10 @@ def convert_single_file(
         False,
         help="Should the mesh be generated using IMOD? WARNING: This is highly experimental.",
     ),
+    pymeshlab_meshing: bool = Option(  # noqa: B008
+        False,
+        help="Should the mesh be generated using PyMeshLab? WARNING: This is highly experimental.",
+    ),
 ):
     """Convert a single membrane segmentation to a mesh.
 
@@ -50,7 +53,9 @@ def convert_single_file(
     membrain-pick convert_file --tomogram-path <path-to-your-tomo> --mb-path <path-to-your-membrane-segmentation> --out-folder <path-to-store-meshes>
     """
 
-    from membrain_pick.mesh_projections.mesh_conversion_wrappers import mesh_for_single_mb_file
+    from membrain_pick.mesh_projections.mesh_conversion_wrappers import (
+        mesh_for_single_mb_file,
+    )
 
     mesh_for_single_mb_file(
         mb_file=mb_path,
@@ -63,6 +68,7 @@ def convert_single_file(
         barycentric_area=barycentric_area,
         input_pixel_size=input_pixel_size,
         imod_meshing=imod_meshing,
+        pymeshlab_meshing=pymeshlab_meshing,
     )
 
 
@@ -99,6 +105,10 @@ def convert_mb_folder(
         False,
         help="Should the mesh be generated using IMOD? WARNING: This is highly experimental.",
     ),
+    pymeshlab_meshing: bool = Option(  # noqa: B008
+        False,
+        help="Should the mesh be generated using PyMeshLab? WARNING: This is highly experimental.",
+    ),
 ):
     """Convert a folder of membrane segmentations to meshes.
 
@@ -106,7 +116,9 @@ def convert_mb_folder(
     -------
     membrain-pick convert_mb_folder --mb-folder <path-to-your-folder> --tomo-path <path-to-tomo> --out-folder <path-to-store-meshes>
     """
-    from membrain_pick.mesh_projections.mesh_conversion_wrappers import mesh_for_tomo_mb_folder
+    from membrain_pick.mesh_projections.mesh_conversion_wrappers import (
+        mesh_for_tomo_mb_folder,
+    )
 
     mesh_for_tomo_mb_folder(
         mb_folder=mb_folder,
@@ -118,4 +130,5 @@ def convert_mb_folder(
         barycentric_area=barycentric_area,
         input_pixel_size=input_pixel_size,
         imod_meshing=imod_meshing,
+        pymeshlab_meshing=pymeshlab_meshing,
     )
