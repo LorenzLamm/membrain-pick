@@ -217,47 +217,6 @@ def compute_values_along_normals(
     return normal_values
 
 
-# def convert_seg_to_mesh_pymeshlab(seg, input_pixel_size=14.08, barycentric_area=10):
-#     vertices, faces, _, _ = measure.marching_cubes(
-#         seg, 0.5, step_size=1.5, method="lewiner"
-#     )
-#     all_col = np.ones((faces.shape[0], 1), dtype=int) * 3  # Prepend 3 for vtk format
-#     faces = np.concatenate((all_col, faces), axis=1)
-#     faces = faces.flatten()
-
-#     # need to store the mesh in a file to load it into pymeshlab
-#     mesh = pv.PolyData(vertices, faces)
-#     mesh.save("marching_cubes_mesh.ply")
-
-#     # Load Mesh into PyMeshLab for Smoothing and Simplification
-#     ms = ml.MeshSet()
-#     ms.load_new_mesh("marching_cubes_mesh.ply")
-
-#     # Apply Laplacian Smoothing to the Mesh
-#     ms.apply_filter(
-#         "apply_coord_laplacian_smoothing",
-#         stepsmoothnum=10,
-#         boundary=True,
-#         cotangentweight=True,
-#         selected=False,
-#     )
-
-#     # Calculate side length for each triangle
-#     calc_barycentric_area = barycentric_area / (input_pixel_size**2)
-#     estimated_face_area = calc_barycentric_area * 0.5
-#     side_len = np.sqrt(4 * estimated_face_area / np.sqrt(3))
-#     target_len = ml.PureValue(side_len)
-
-#     # Apply Isotropic Explicit Remeshing to the Mesh
-#     ms.apply_filter(
-#         "meshing_isotropic_explicit_remeshing", iterations=10, targetlen=target_len
-#     )
-
-#     # Save the Final Simplified Mesh
-#     ms.save_current_mesh("simplified_mesh.ply")
-#     mesh = pv.read("simplified_mesh.ply")
-
-
 def convert_seg_to_mesh_pymeshlab(seg, input_pixel_size=14.08, barycentric_area=10):
     # Generate vertices and faces from marching cubes
     vertices, faces, _, _ = measure.marching_cubes(
@@ -333,7 +292,7 @@ def convert_seg_to_evenly_spaced_mesh(
 
     cluster_points = int(mesh.area / barycentric_area)
     clus = pyacvd.Clustering(mesh)
-    clus.subdivide(1)
+    clus.subdivide(3)
     clus.cluster(cluster_points)
     remesh = clus.create_mesh()
 
