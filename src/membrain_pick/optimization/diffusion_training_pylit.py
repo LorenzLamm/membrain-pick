@@ -2,6 +2,7 @@
 import pytorch_lightning as pl
 import torch
 from torch.optim import Adam, SGD
+import matplotlib.pyplot as plt
 
 from membrain_pick.networks.diffusion_net import DiffusionNet
 from membrain_pick.clustering.mean_shift_utils import MeanShiftForwarder
@@ -30,11 +31,17 @@ class DiffusionNetModule(pl.LightningModule):
                  fixed_time=None, 
                  one_D_conv_first=False, 
                  clamp_diffusion=False, 
+                 out_plot_file=None,
                  visualize_diffusion=False, 
                  visualize_grad_rotations=False, 
                  visualize_grad_features=False):
         super().__init__()
         self.max_epochs = max_epochs
+        self.epoch_losses = {
+            "train": [],
+            "val": []
+        }
+        self.out_plot_file = out_plot_file
         # Initialize the DiffusionNet with the given arguments.
         self.model = DiffusionNet(C_in=C_in, 
                                   C_out=C_out, 
@@ -157,13 +164,24 @@ class DiffusionNetModule(pl.LightningModule):
         # Log the average training loss
         avg_train_loss = self.total_train_loss / self.train_batches
         print("Train epoch loss: ", avg_train_loss)
+        self.epoch_losses["train"].append(avg_train_loss)
         self.log('train_loss', avg_train_loss)
 
     def on_validation_epoch_end(self):
         # Log the average validation loss
         avg_val_loss = self.total_val_loss / self.val_batches
         print("Validation epoch loss: ", avg_val_loss)
+        self.epoch_losses["val"].append(avg_val_loss)
         self.log('val_loss', avg_val_loss)
+        self.plot_losses()
+
+
+    def plot_losses(self):
+        plt.figure()
+        plt.plot(self.epoch_losses["train"], label="Train loss")
+        plt.plot(self.epoch_losses["val"], label="Validation loss")
+        plt.legend()
+        plt.savefig(self.out_plot_file)
 
 
 def unpack_batch(batch):

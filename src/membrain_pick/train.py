@@ -48,6 +48,8 @@ def train(
     val_path = os.path.join(data_dir, "val")
     cache_dir_mb = os.path.join(training_dir, "mesh_cache")
     log_dir = os.path.join(training_dir, "logs")
+    out_plot_file = os.path.join(training_dir, "plots", f"training_curves_{project_name}_{sub_name}.png")
+    os.makedirs(os.path.join(training_dir, "plots"), exist_ok=True)
 
     # Create the data module
     data_module = MemSegDiffusionNetDataModule(
@@ -85,6 +87,7 @@ def train(
         device=device,
         one_D_conv_first=one_D_conv_first,
         max_epochs=max_epochs,
+        out_plot_file=out_plot_file,
     )
 
     checkpointing_name = project_name + "_" + sub_name
