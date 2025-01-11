@@ -1,3 +1,4 @@
+import logging
 import os
 import numpy as np
 import scipy.spatial as spatial
@@ -12,6 +13,7 @@ from membrain_pick.dataloading.data_utils import (
 )
 from membrain_pick.mesh_projections.compute_mesh_projection import convert_seg_to_mesh
 from membrain_seg.segmentation.dataloading.data_utils import load_tomogram
+
 
 
 def orientation_from_mesh(coordinates, mesh):
@@ -39,7 +41,7 @@ def orientation_from_mesh(coordinates, mesh):
     distances, vertex_indices = tree.query(coordinates)
 
     if np.any(distances > 200):
-        print(
+        logging.warning(
             "Warning: Some points are more than 200 units away from the mesh. This might be an error. Check rescaling factors."
         )
 

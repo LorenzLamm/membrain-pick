@@ -154,7 +154,6 @@ def mesh_for_tomo_mb_folder(
     mb_files = [
         os.path.join(mb_folder, f) for f in os.listdir(mb_folder) if f.endswith(".mrc")
     ]
-    print(mb_files)
 
     if tomo is None:
         tomo = load_tomogram(tomo_file)

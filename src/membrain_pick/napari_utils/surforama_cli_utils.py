@@ -213,7 +213,6 @@ def normalize_surface_values(surface_values, value_range=None):
             np.percentile(surface_values, cutoff_pct * 100),
             np.percentile(surface_values, (1 - cutoff_pct) * 100),
         )
-    print("Normalized value range: ", value_range)
     normalized_values = (surface_values - value_range[0]) / (
         value_range[1] - value_range[0] + np.finfo(float).eps
     )

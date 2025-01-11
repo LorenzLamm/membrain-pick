@@ -508,7 +508,7 @@ def load_from_cache(cur_cache_path: str) -> Optional[Dict[str, np.ndarray]]:
         The loaded partitioning data if successful, None otherwise.
     """
     if os.path.isfile(cur_cache_path):
-        print(f"Loading partitioning data from {cur_cache_path}")
+        # print(f"Loading partitioning data from {cur_cache_path}")
         return np.load(cur_cache_path)
     else:
         return None

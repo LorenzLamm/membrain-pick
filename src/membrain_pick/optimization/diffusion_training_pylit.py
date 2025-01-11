@@ -132,7 +132,7 @@ class DiffusionNetModule(pl.LightningModule):
         # Log training loss
         self.total_train_loss += loss.detach()
         self.train_batches += 1
-        print(f"Training loss: {loss}")
+        # print(f"Training loss: {loss}")
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -156,11 +156,13 @@ class DiffusionNetModule(pl.LightningModule):
     def on_train_epoch_end(self):
         # Log the average training loss
         avg_train_loss = self.total_train_loss / self.train_batches
+        print("Train epoch loss: ", avg_train_loss)
         self.log('train_loss', avg_train_loss)
 
     def on_validation_epoch_end(self):
         # Log the average validation loss
         avg_val_loss = self.total_val_loss / self.val_batches
+        print("Validation epoch loss: ", avg_val_loss)
         self.log('val_loss', avg_val_loss)
 
 
