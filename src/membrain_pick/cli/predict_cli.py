@@ -142,11 +142,11 @@ def mean_shift_for_h5(
         "cuda:0", help="Device to use for the mean shift."
     ),
 ):
-    """Perform mean shift on the given CSV file.
+    """Perform mean shift on the given .h5 container.
 
     Example
     -------
-    membrain-pick mean_shift --csv-path <path-to-your-csv> --out-dir <path-to-store-output>
+    membrain-pick mean_shift --h5-path <path-to-your-h5> --out-dir <path-to-store-output>
     """
     from membrain_pick.clustering.mean_shift_inference import (
         mean_shift_for_h5 as _mean_shift_for_h5,
