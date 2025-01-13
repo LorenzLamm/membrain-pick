@@ -16,7 +16,6 @@ from scipy.ndimage import map_coordinates
 
 
 import trimesh
-import pymeshlab as ml
 
 
 def imod_mesh_conversion(seg, temp_folder="./tmp_data"):
@@ -218,6 +217,8 @@ def compute_values_along_normals(
 
 
 def convert_seg_to_mesh_pymeshlab(seg, input_pixel_size=14.08, barycentric_area=10):
+    import pymeshlab as ml
+
     # Generate vertices and faces from marching cubes
     vertices, faces, _, _ = measure.marching_cubes(
         seg, 0.5, step_size=1.5, method="lewiner"
