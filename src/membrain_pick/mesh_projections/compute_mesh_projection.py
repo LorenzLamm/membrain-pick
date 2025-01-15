@@ -242,7 +242,7 @@ def convert_seg_to_mesh_pymeshlab(seg, input_pixel_size=14.08, barycentric_area=
     ms.apply_filter(
         "apply_coord_laplacian_smoothing",
         stepsmoothnum=10,
-        boundary=True,
+        boundary=False,
         cotangentweight=True,
         selected=False,
     )
@@ -251,7 +251,13 @@ def convert_seg_to_mesh_pymeshlab(seg, input_pixel_size=14.08, barycentric_area=
     calc_barycentric_area = barycentric_area / (input_pixel_size**2)
     estimated_face_area = calc_barycentric_area * 0.5
     side_len = np.sqrt(4 * estimated_face_area / np.sqrt(3))
-    target_len = ml.PureValue(side_len)
+
+    # Check if AbsoluteValue or PureValue is available
+    # (PureValue is available in newer versions of PyMeshLab)
+    try:
+        target_len = ml.AbsoluteValue(side_len)  # For older versions
+    except AttributeError:
+        target_len = ml.PureValue(side_len)  # For newer versions
 
     # Apply Isotropic Explicit Remeshing
     ms.apply_filter(
@@ -265,6 +271,8 @@ def convert_seg_to_mesh_pymeshlab(seg, input_pixel_size=14.08, barycentric_area=
 
     # Load the final mesh with PyVista
     simplified_mesh = pv.read(simplified_mesh_path)
+
+    simplified_mesh = simplified_mesh.smooth_taubin(n_iter=500)
 
     return simplified_mesh
 

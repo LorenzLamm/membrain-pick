@@ -6,7 +6,6 @@ from .cli import OPTION_PROMPT_KWARGS as PKWARGS
 from .cli import cli
 
 
-
 @cli.command(name="train", no_args_is_help=True)
 def train(
     data_dir: str = Option(  # noqa: B008
@@ -28,6 +27,9 @@ def train(
     ),
     device: str = Option("cuda:0", help="Device to use."),  # noqa: B008
     max_epochs: int = Option(200, help="Maximum number of epochs."),  # noqa: B008
+    verbose: bool = Option(
+        True, help="Should the training progress bar be printed?"
+    ),  # noqa: B008
 ):
     """Train a diffusion net model.
 
@@ -60,6 +62,7 @@ def train(
         one_D_conv_first=True,
         mean_shift_output=False,
         max_epochs=max_epochs,
+        verbose=verbose,
     )
 
 
@@ -120,6 +123,9 @@ def train_advanced(
         2.0, help="Margin for the mean shift."
     ),
     max_epochs: int = Option(200, help="Maximum number of epochs."),  # noqa: B008
+    verbose: bool = Option(
+        True, help="Should the training progress bar be printed?"
+    ),  # noqa: B008
 ):
     """Train a diffusion net model.
 
@@ -156,4 +162,5 @@ def train_advanced(
         mean_shift_max_iter=mean_shift_max_iter,
         mean_shift_margin=mean_shift_margin,
         max_epochs=max_epochs,
+        verbose=verbose,
     )
