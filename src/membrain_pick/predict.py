@@ -98,6 +98,7 @@ def predict(
     mean_shift_score_threshold: float = 9.0,
     # mean_shift_device: str = "cuda:0",
     mean_shift_device: str = "cpu",
+    verbose: bool = True,
 ):
     """Predict the output of the trained model on the given data.
 
@@ -157,7 +158,7 @@ def predict(
         "weights": [],
     }
 
-    for i, batch in tqdm(enumerate(test_loader)):
+    for i, batch in tqdm(enumerate(test_loader), disable=not verbose):
         all_diffusion_feature = batch["diffusion_inputs"]["features"].clone()
 
         outputs = []

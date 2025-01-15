@@ -48,6 +48,9 @@ def predict(
         "cpu",
         help="Device to use for the mean shift.",
     ),
+    verbose: bool = Option(
+        True, help="Should the prediction progress bar be printed?"
+    ),  # noqa: B008
 ):
     """Predict the output of the trained model on the given data.
 
@@ -76,6 +79,7 @@ def predict(
         mean_shift_margin=mean_shift_margin,
         mean_shift_score_threshold=mean_shift_score_threshold,
         mean_shift_device=mean_shift_device,
+        verbose=verbose,
     )
 
 

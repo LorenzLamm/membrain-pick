@@ -42,13 +42,16 @@ def train(
     mean_shift_margin: float = 2.0,
     # Training parameters
     max_epochs: int = 1000,
+    verbose: bool = True,
 ):
 
     train_path = os.path.join(data_dir, "train")
     val_path = os.path.join(data_dir, "val")
     cache_dir_mb = os.path.join(training_dir, "mesh_cache")
     log_dir = os.path.join(training_dir, "logs")
-    out_plot_file = os.path.join(training_dir, "plots", f"training_curves_{project_name}_{sub_name}.png")
+    out_plot_file = os.path.join(
+        training_dir, "plots", f"training_curves_{project_name}_{sub_name}.png"
+    )
     os.makedirs(os.path.join(training_dir, "plots"), exist_ok=True)
 
     # Create the data module
@@ -131,6 +134,7 @@ def train(
             print_lr_cb,
         ],
         max_epochs=max_epochs,
+        enable_progress_bar=verbose,
     )
 
     # Start the training process

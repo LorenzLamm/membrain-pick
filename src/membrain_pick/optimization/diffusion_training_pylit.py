@@ -1,4 +1,5 @@
 """ Pytorch lightning module for training DiffusionNet"""
+
 import pytorch_lightning as pl
 import torch
 from torch.optim import Adam, SGD
@@ -8,66 +9,71 @@ from membrain_pick.networks.diffusion_net import DiffusionNet
 from membrain_pick.clustering.mean_shift_utils import MeanShiftForwarder
 from membrain_pick.optimization.mean_shift_losses import MeanShift_loss
 from membrain_pick.optimization.optim_utils import weighted_MSELoss, CombinedLoss
-from torch.optim.lr_scheduler import StepLR, CosineAnnealingWarmRestarts, ReduceLROnPlateau, LambdaLR
+from torch.optim.lr_scheduler import (
+    StepLR,
+    CosineAnnealingWarmRestarts,
+    ReduceLROnPlateau,
+    LambdaLR,
+)
 
 
 class DiffusionNetModule(pl.LightningModule):
-    def __init__(self, 
-                 C_in=13, 
-                 C_out=1, 
-                 C_width=16, 
-                 N_block=6, 
-                 conv_width=32,
-                 mlp_hidden_dims=None, 
-                 mean_shift_output=False,
-                 mean_shift_bandwidth=7.,
-                 mean_shift_max_iter=10,
-                 mean_shift_margin=2.,
-                 max_epochs=1000,
-                 dropout=True, 
-                 with_gradient_features=True, 
-                 with_gradient_rotations=True, 
-                 device="cuda:0", 
-                 fixed_time=None, 
-                 one_D_conv_first=False, 
-                 clamp_diffusion=False, 
-                 out_plot_file=None,
-                 visualize_diffusion=False, 
-                 visualize_grad_rotations=False, 
-                 visualize_grad_features=False):
+    def __init__(
+        self,
+        C_in=13,
+        C_out=1,
+        C_width=16,
+        N_block=6,
+        conv_width=32,
+        mlp_hidden_dims=None,
+        mean_shift_output=False,
+        mean_shift_bandwidth=7.0,
+        mean_shift_max_iter=10,
+        mean_shift_margin=2.0,
+        max_epochs=1000,
+        dropout=True,
+        with_gradient_features=True,
+        with_gradient_rotations=True,
+        device="cuda:0",
+        fixed_time=None,
+        one_D_conv_first=False,
+        clamp_diffusion=False,
+        out_plot_file=None,
+        visualize_diffusion=False,
+        visualize_grad_rotations=False,
+        visualize_grad_features=False,
+    ):
         super().__init__()
         self.max_epochs = max_epochs
-        self.epoch_losses = {
-            "train": [],
-            "val": []
-        }
+        self.epoch_losses = {"train": [], "val": []}
         self.out_plot_file = out_plot_file
         # Initialize the DiffusionNet with the given arguments.
-        self.model = DiffusionNet(C_in=C_in, 
-                                  C_out=C_out, 
-                                  C_width=C_width, 
-                                  conv_width=conv_width,
-                                  N_block=N_block, 
-                                  mlp_hidden_dims=mlp_hidden_dims, 
-                                  dropout=dropout, 
-                                  with_gradient_features=with_gradient_features, 
-                                  with_gradient_rotations=with_gradient_rotations, 
-                                  device=device, 
-                                  fixed_time=fixed_time, 
-                                  one_D_conv_first=one_D_conv_first, 
-                                  clamp_diffusion=clamp_diffusion, 
-                                  visualize_diffusion=visualize_diffusion, 
-                                  visualize_grad_rotations=visualize_grad_rotations, 
-                                  visualize_grad_features=visualize_grad_features
-                                  )
+        self.model = DiffusionNet(
+            C_in=C_in,
+            C_out=C_out,
+            C_width=C_width,
+            conv_width=conv_width,
+            N_block=N_block,
+            mlp_hidden_dims=mlp_hidden_dims,
+            dropout=dropout,
+            with_gradient_features=with_gradient_features,
+            with_gradient_rotations=with_gradient_rotations,
+            device=device,
+            fixed_time=fixed_time,
+            one_D_conv_first=one_D_conv_first,
+            clamp_diffusion=clamp_diffusion,
+            visualize_diffusion=visualize_diffusion,
+            visualize_grad_rotations=visualize_grad_rotations,
+            visualize_grad_features=visualize_grad_features,
+        )
         self.mean_shift_output = mean_shift_output
         if self.mean_shift_output:
             self.ms_module = MeanShiftForwarder(
-                        bandwidth=mean_shift_bandwidth,
-                        max_iter=mean_shift_max_iter,
-                        margin=mean_shift_margin,
-                        device=device,
-                    )
+                bandwidth=mean_shift_bandwidth,
+                max_iter=mean_shift_max_iter,
+                margin=mean_shift_margin,
+                device=device,
+            )
         self.define_loss()
 
     def define_loss(self):
@@ -82,35 +88,31 @@ class DiffusionNetModule(pl.LightningModule):
 
     def forward(self, batch):
         # Forward pass through DiffusionNet
-        features, mass, L, evals, evecs, gradX, gradY, faces, verts_orig = unpack_batch(batch)
+        features, mass, L, evals, evecs, gradX, gradY, faces, verts_orig = unpack_batch(
+            batch
+        )
         if features is None:
             return None
-        out = {
-            "mse": self.model(features, mass, L, evals, evecs, gradX, gradY, faces)
-        }
+        out = {"mse": self.model(features, mass, L, evals, evecs, gradX, gradY, faces)}
         if self.mean_shift_output:
             out_ms, _, _ = self.ms_module.mean_shift_for_seeds(
-                coords=verts_orig, 
-                nn_weights=out["mse"], 
-                seeds=verts_orig
-                )
+                coords=verts_orig, nn_weights=out["mse"], seeds=verts_orig
+            )
             out["ms"] = out_ms
 
-            
         return out
 
     def configure_optimizers(self):
         optimizer = Adam(self.parameters(), lr=1e-3)
         scheduler = {
-            'scheduler': LambdaLR(
-                optimizer, 
-                lr_lambda=lambda epoch: (1 - epoch / self.max_epochs) ** 0.9
+            "scheduler": LambdaLR(
+                optimizer, lr_lambda=lambda epoch: (1 - epoch / self.max_epochs) ** 0.9
             ),
-            'interval': 'epoch',  # Adjust the interval as needed
-            'frequency': 1  # Adjust the frequency as needed
+            "interval": "epoch",  # Adjust the interval as needed
+            "frequency": 1,  # Adjust the frequency as needed
         }
         return [optimizer], [scheduler]
-    
+
     def on_train_epoch_start(self):
         self.total_train_loss = 0
         self.train_batches = 0
@@ -119,21 +121,17 @@ class DiffusionNetModule(pl.LightningModule):
         self.total_val_loss = 0
         self.val_batches = 0
 
- 
     def training_step(self, batch, batch_idx):
-        targets = {
-            "mse": batch["label"],
-            "ms": batch["gt_pos"]
-        }
+        targets = {"mse": batch["label"], "ms": batch["gt_pos"]}
         weights = {
             "mse": batch["vert_weights"],
-            "ms": torch.ones_like(batch["gt_pos"]) # might need to change this
+            "ms": torch.ones_like(batch["gt_pos"]),  # might need to change this
         }
-        
+
         preds = self(batch)
         if preds is None:
             return None
-        
+
         # Calculate loss
         loss = self.criterion(preds, targets, weights)
         # Log training loss
@@ -143,13 +141,10 @@ class DiffusionNetModule(pl.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
-        targets = {
-            "mse": batch["label"],
-            "ms": batch["gt_pos"]
-        }
+        targets = {"mse": batch["label"], "ms": batch["gt_pos"]}
         weights = {
             "mse": batch["vert_weights"],
-            "ms": torch.ones_like(batch["gt_pos"]) # might need to change this
+            "ms": torch.ones_like(batch["gt_pos"]),  # might need to change this
         }
         preds = self(batch)
         if preds is None:
@@ -163,23 +158,35 @@ class DiffusionNetModule(pl.LightningModule):
     def on_train_epoch_end(self):
         # Log the average training loss
         avg_train_loss = self.total_train_loss / self.train_batches
-        print("Train epoch loss: ", avg_train_loss)
+        print("Train epoch loss: ", avg_train_loss.cpu().numpy())
         self.epoch_losses["train"].append(avg_train_loss)
-        self.log('train_loss', avg_train_loss)
+        self.log("train_loss", avg_train_loss)
 
     def on_validation_epoch_end(self):
         # Log the average validation loss
         avg_val_loss = self.total_val_loss / self.val_batches
-        print("Validation epoch loss: ", avg_val_loss)
+        print("Validation epoch loss: ", avg_val_loss.cpu().numpy())
         self.epoch_losses["val"].append(avg_val_loss)
-        self.log('val_loss', avg_val_loss)
+        self.log("val_loss", avg_val_loss)
         self.plot_losses()
-
 
     def plot_losses(self):
         plt.figure()
-        plt.plot(self.epoch_losses["train"], label="Train loss")
-        plt.plot(self.epoch_losses["val"], label="Validation loss")
+        plt.plot(
+            [
+                self.epoch_losses["train"][i].cpu().numpy()
+                for i in range(0, len(self.epoch_losses["train"]))
+            ],
+            label="Train loss",
+        )
+        plt.plot(
+            [
+                self.epoch_losses["val"][i].cpu().numpy()
+                for i in range(0, len(self.epoch_losses["val"]))
+            ],
+            label="Validation loss",
+        )
+
         plt.legend()
         plt.savefig(self.out_plot_file)
 
