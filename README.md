@@ -12,6 +12,11 @@ The workflow of MemBrain-pick is as follows:
 4. **Training**: The generated meshes, along with the annotations, are used to train a model that can predict the location of membrane-associated particles.
 5. **Prediction**: The trained model is used to predict the location of membrane-associated particles in the membrane segmentations.
 
+## Example notebook
+For a quick start, you can walk through our example notebook. You can easily run it on Google Colab by clicking on the badge below:
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/CellArchLab/membrain_tutorial_scripts/blob/main/MemBrain_pick_example.ipynb)
+
 ### Key Functionalities
 - **Mesh Conversion**: Transform membrane segmentations into a mesh representation that can easily be processed by MemBrain-pick and surforama.
 - **Model training**: Train a model to predict the location of membrane-associated particles.
