@@ -30,6 +30,9 @@ def train(
     verbose: bool = Option(
         True, help="Should the training progress bar be printed?"
     ),  # noqa: B008
+    num_workers: int = Option(
+        None, help="Number of workers for the DataLoader."
+    ),  # noqa: B008
 ):
     """Train a diffusion net model.
 
@@ -63,6 +66,7 @@ def train(
         mean_shift_output=False,
         max_epochs=max_epochs,
         verbose=verbose,
+        num_workers=num_workers,
     )
 
 
@@ -126,6 +130,9 @@ def train_advanced(
     verbose: bool = Option(
         True, help="Should the training progress bar be printed?"
     ),  # noqa: B008
+    num_workers: int = Option(
+        None, help="Number of workers for the DataLoader."
+    ),  # noqa: B008
 ):
     """Train a diffusion net model.
 
@@ -163,4 +170,5 @@ def train_advanced(
         mean_shift_margin=mean_shift_margin,
         max_epochs=max_epochs,
         verbose=verbose,
+        num_workers=num_workers,
     )

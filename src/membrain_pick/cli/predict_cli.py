@@ -51,6 +51,9 @@ def predict(
     verbose: bool = Option(
         True, help="Should the prediction progress bar be printed?"
     ),  # noqa: B008
+    num_workers: int = Option(
+        None, help="Number of workers for the DataLoader."
+    ),  # noqa: B008
 ):
     """Predict the output of the trained model on the given data.
 
@@ -80,6 +83,7 @@ def predict(
         mean_shift_score_threshold=mean_shift_score_threshold,
         mean_shift_device=mean_shift_device,
         verbose=verbose,
+        num_workers=num_workers,
     )
 
 
