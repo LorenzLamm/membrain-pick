@@ -11,6 +11,19 @@ from membrain_pick.dataloading.diffusionnet_datamodule import (
 from membrain_pick.optimization.diffusion_training_pylit import DiffusionNetModule
 
 
+def get_optimal_num_workers():
+    """
+    Dynamically determine an optimal number of DataLoader workers.
+
+    Returns:
+        int: Recommended number of workers.
+    """
+    cpu_count = os.cpu_count()
+    if not cpu_count:
+        return 0  # Fallback if CPU count is unavailable
+    return min(cpu_count // 2, 16)
+
+
 def train(
     data_dir: str,
     training_dir: str = "./training_output",
@@ -43,6 +56,7 @@ def train(
     # Training parameters
     max_epochs: int = 1000,
     verbose: bool = True,
+    num_workers: int = None,
 ):
 
     train_path = os.path.join(data_dir, "train")
@@ -69,7 +83,9 @@ def train(
         position_tokens=position_tokens,
         k_eig=k_eig,
         batch_size=1,
-        num_workers=0,
+        num_workers=(
+            num_workers if num_workers is not None else get_optimal_num_workers()
+        ),
         pin_memory=False,
     )
     data_module.setup()
@@ -135,6 +151,7 @@ def train(
         ],
         max_epochs=max_epochs,
         enable_progress_bar=verbose,
+        accumulate_grad_batches=16,
     )
 
     # Start the training process

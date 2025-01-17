@@ -9,32 +9,24 @@ import numpy as np
 def custom_collate(batch):
     """Custom collate function to handle a complex data structure.
 
-    Each sample is a dictionary containing numpy arrays and another dictionary
-    with sparse matrices. Since we're using a batch size of 1, this function
-    simplifies the handling of these structures.
-
     Args:
-        batch: A list of samples, where each sample is the complex data structure
-               described above.
+        batch: A list of samples, where each sample is the complex data structure.
 
     Returns:
         Processed batch ready for model input.
     """
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # Unpack the single sample from the batch
     sample = batch[0]
-    # Initialize a new dictionary to store the processed sample
     processed_sample = {}
 
     for key, value in sample.items():
         if isinstance(value, np.ndarray):
             # Convert numpy arrays to tensors
-            processed_sample[key] = torch.tensor(value).to(device)
+            processed_sample[key] = torch.tensor(value)
         elif isinstance(value, dict):
-            # For the nested dictionary, we assume it contains sparse matrices
-            # and pass it through directly without modifications
+            # For the nested dictionary, directly pass it through without GPU operations
             processed_sample[key] = {
-                subkey: subvalue.to(device) for subkey, subvalue in value.items()
+                subkey: subvalue for subkey, subvalue in value.items()
             }
         else:
             # Directly pass through any other types of values

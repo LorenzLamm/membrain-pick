@@ -7,6 +7,7 @@ import numpy as np
 from membrain_pick.dataloading.diffusionnet_datamodule import (
     MemSegDiffusionNetDataModule,
 )
+from membrain_pick.train import get_optimal_num_workers
 from membrain_pick.optimization.diffusion_training_pylit import DiffusionNetModule
 
 from membrain_pick.dataloading.data_utils import (
@@ -99,6 +100,7 @@ def predict(
     # mean_shift_device: str = "cuda:0",
     mean_shift_device: str = "cpu",
     verbose: bool = True,
+    num_workers: int = None,
 ):
     """Predict the output of the trained model on the given data.
 
@@ -120,7 +122,9 @@ def predict(
         k_eig=k_eig,
         batch_size=1,
         force_recompute=force_recompute_partitioning,
-        num_workers=0,
+        num_workers=(
+            num_workers if num_workers is not None else get_optimal_num_workers()
+        ),
         pin_memory=False,
         overfit=False,
     )
@@ -164,6 +168,13 @@ def predict(
         outputs = []
         for i in range(all_diffusion_feature.shape[1] - 15):
             batch["diffusion_inputs"]["features"] = all_diffusion_feature[:, i : i + 16]
+            # put the batch on the device
+            for key in batch:
+                if isinstance(batch[key], torch.Tensor):
+                    batch[key] = batch[key].to(device)
+                elif isinstance(batch[key], dict):
+                    for sub_key in batch[key]:
+                        batch[key][sub_key] = batch[key][sub_key].to(device)
             with torch.no_grad():
                 output = model(batch)
             outputs.append(output["mse"].squeeze().detach().cpu().numpy())
