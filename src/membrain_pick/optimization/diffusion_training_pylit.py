@@ -103,7 +103,7 @@ class DiffusionNetModule(pl.LightningModule):
         return out
 
     def configure_optimizers(self):
-        optimizer = Adam(self.parameters(), lr=1e-3)
+        optimizer = Adam(self.parameters(), lr=1e-3 * 5)
         scheduler = {
             "scheduler": LambdaLR(
                 optimizer, lr_lambda=lambda epoch: (1 - epoch / self.max_epochs) ** 0.9
