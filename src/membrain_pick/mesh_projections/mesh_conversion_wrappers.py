@@ -161,7 +161,7 @@ def mesh_for_tomo_mb_folder(
     if tomo is None:
         tomo = load_tomogram(tomo_file)
         input_pixel_size = (
-            tomo.voxel_size if input_pixel_size is None else input_pixel_size
+            tomo.voxel_size.x if input_pixel_size is None else input_pixel_size
         )
         tomo = tomo.data
         if tomo_token is None:
@@ -215,7 +215,7 @@ def mesh_for_single_mb_file(
     if tomo is None:
         tomo = load_tomogram(tomo_file)
         input_pixel_size = (
-            tomo.voxel_size if input_pixel_size is None else input_pixel_size
+            tomo.voxel_size.x if input_pixel_size is None else input_pixel_size
         )
         tomo = tomo.data
         if tomo_token is None:
