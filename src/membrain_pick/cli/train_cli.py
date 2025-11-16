@@ -102,8 +102,8 @@ def train_advanced(
     max_distance: float = Option(10.0, help="Maximum distance for GT distance map."),  # noqa: B008
     k_eig: int = Option(128, help="Number of eigenvectors."),  # noqa: B008
     N_block: int = Option(4, help="Number of blocks."),  # noqa: B008
-    C_width: int = Option(16, help="Width of the convolution."),  # noqa: B008
-    conv_width: int = Option(16, help="Width of the convolution."),  # noqa: B008
+    C_width: int = Option(16, help="Number of channels in diffusion linear layers."),  # noqa: B008
+    conv_width: int = Option(16, help="Width of the 1D convolution in the separable convolution layer."),  # noqa: B008
     dropout: bool = Option(False, help="Should dropout be used?"),  # noqa: B008
     with_gradient_features: bool = Option(  # noqa: B008
         True, help="Should the gradient features be used?"

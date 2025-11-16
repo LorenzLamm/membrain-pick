@@ -54,31 +54,6 @@ def exclude_faces_from_candidates(
     return candidates[~mask]
 
 
-def get_adjacent_triangles(faces, edge_to_face_map, triangle_index):
-    triangle = faces[triangle_index]
-    adjacent_triangles = set()
-
-    for i in range(3):
-        edge = tuple(sorted((triangle[i], triangle[(i + 1) % 3])))
-        for face_index in edge_to_face_map.get(edge, []):
-            if face_index != triangle_index:
-                adjacent_triangles.add(face_index)
-
-    return list(adjacent_triangles)
-
-
-def build_edge_to_face_map(faces):
-    edge_to_face = {}
-    for i, face in enumerate(faces):
-        edges = [(face[j], face[(j + 1) % 3]) for j in range(3)]
-        for edge in edges:
-            edge = tuple(sorted(edge))  # Ensure the edge tuple is in a consistent order
-            if edge not in edge_to_face:
-                edge_to_face[edge] = []
-            edge_to_face[edge].append(i)
-    return edge_to_face
-
-
 def gaussian_weights(dists, sigma):
     return np.exp(-(dists**2) / (2 * sigma**2))
 

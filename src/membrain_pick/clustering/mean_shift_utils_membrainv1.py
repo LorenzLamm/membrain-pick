@@ -74,12 +74,6 @@ def process_single_point(
     cur_cen = point
     while not converged and it < max_it:
         it += 1
-        # cur_distances = eu_dist(np.expand_dims(cur_cen, 0), points)
-        # cur_distances = cur_distances[0]
-        # mask = cur_distances < bandwidth
-        # neighbors = points[mask]
-        # neigh_dists = cur_distances[mask]
-        # neigh_scores = scores[mask]
 
         indices = tree.query_ball_point(cur_cen, r=bandwidth)
         neighbors = points[indices]

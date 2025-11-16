@@ -1,6 +1,3 @@
-import os
-from typing import List
-
 from typer import Option
 from .cli import OPTION_PROMPT_KWARGS as PKWARGS
 from .cli import cli
@@ -25,8 +22,8 @@ def predict(
         False, help="Should the partitioning be recomputed?"
     ),
     N_block: int = Option(4, help="Number of blocks."),  # noqa: B008
-    C_width: int = Option(16, help="Width of the convolution."),  # noqa: B008
-    conv_width: int = Option(16, help="Width of the convolution."),  # noqa: B008
+    C_width: int = Option(16, help="Number of channels in diffusion linear layers."),  # noqa: B008
+    conv_width: int = Option(16, help="Width of the 1D convolution in the separable convolution layer."),  # noqa: B008
     k_eig: int = Option(128, help="Number of eigenvectors."),  # noqa: B008
     mean_shift_output: bool = Option(  # noqa: B008
         True, help="Should the output be mean shifted?"
@@ -85,46 +82,6 @@ def predict(
         verbose=verbose,
         num_workers=num_workers,
     )
-
-
-# @cli.command(name="mean_shift", no_args_is_help=True)
-# def mean_shift_for_csv(
-#     csv_path: str = Option(..., help="Path to the CSV file.", **PKWARGS),  # noqa: B008
-#     out_dir: str = Option(  # noqa: B008
-#         "./mean_shift_output",
-#         help="Path to the folder where the output should be stored.",
-#     ),
-#     bandwidth: float = Option(7.0, help="Bandwidth for the mean shift."),  # noqa: B008
-#     max_iter: int = Option(  # noqa: B008
-#         150, help="Maximum number of iterations for the mean shift."
-#     ),
-#     margin: float = Option(0.0, help="Margin for the mean shift."),  # noqa: B008
-#     score_threshold: float = Option(  # noqa: B008
-#         9.0, help="Score threshold for the mean shift."
-#     ),
-#     device: str = Option(  # noqa: B008
-#         "cuda:0", help="Device to use for the mean shift."
-#     ),
-# ):
-#     """Perform mean shift on the given CSV file.
-
-#     Example
-#     -------
-#     membrain-pick mean_shift --csv-path <path-to-your-csv> --out-dir <path-to-store-output>
-#     """
-#     from membrain_pick.clustering.mean_shift_inference import (
-#         mean_shift_for_csv as _mean_shift_for_csv,
-#     )
-
-#     _mean_shift_for_csv(
-#         csv_file=csv_path,
-#         out_dir=out_dir,
-#         bandwidth=bandwidth,
-#         max_iter=max_iter,
-#         margin=margin,
-#         score_threshold=score_threshold,
-#         device=device,
-#     )
 
 
 @cli.command(name="mean_shift", no_args_is_help=True)

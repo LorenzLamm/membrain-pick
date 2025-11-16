@@ -2,17 +2,13 @@ import numpy as np
 from sklearn.neighbors import NearestNeighbors
 import csv
 
-
-
 class Mesh(object):
     def __init__(self, vertices, triangle_combos):
-        from time import time
-        time_zero = time()
         self.vertices = vertices
         self.triangles = []
         self.triangle_combos = triangle_combos
         self.compute_triangle_centers()
-        self.nn_entity = NearestNeighbors(n_neighbors=1).fit(self.triangle_centers)#.fit(self.triangle_centers)
+        self.nn_entity = NearestNeighbors(n_neighbors=1).fit(self.triangle_centers)
 
     def __len__(self):
         return len(self.triangle_combos)
@@ -67,8 +63,6 @@ class Mesh(object):
                 row = ['f', str(int(combo[0])), str(int(combo[1])), str(int(combo[2]))]
                 csv_writer.writerow(row)
             
-
-
 
 class Triangle(object):
     def __init__(self, v1, v2, v3):
