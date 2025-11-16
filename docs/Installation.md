@@ -1,16 +1,9 @@
 # Installation
 
 These installation instructions are very preliminary, and surely will not work on all systems.
-But if any problems come up, do not hesitate to contact us (lorenz.lamm@helmholtz-munich.de).
+But if any problems come up, do not hesitate to contact us (ideally via Github issue).
 
-## Step 1: Clone repository
-
-Make sure to have git installed, then run
-```shell
-git clone https://github.com/LorenzLamm/membrain-pick.git
-```
-
-## Step 2: Create a virtual environment
+## Step 1: Create a virtual environment
 Before running any scripts, you should create a virtual Python environment.
 In these instructions, we use Miniconda for managing your virtual environments,
 but any alternative like Conda, Mamba, virtualenv, venv, ... should be fine.
@@ -27,8 +20,23 @@ In order to use it, you need to activate the environment:
 conda activate <env_name>
 ```
 
-## Step 3: Install MemBrain-seg and its dependencies
-Move to the folder "membrain-pick" (from the cloned repository in Step 1) that contains the "src" folder.
+## Step 2: Installation via PyPI (Option 1, recommended)
+The easiest way to install MemBrain-pick and its dependencies (except for surforama, see below)
+is to type
+```shell
+pip install membrain-pick
+```
+This should install MemBrain-pick directly from PyPI.
+
+
+## Step 2 alternative: Installation via cloning our repository (Option 2, recommended)
+
+Make sure to have git installed, then run
+```shell
+git clone https://github.com/CellArchLab/membrain-pick.git
+```
+
+Move to the folder "membrain-pick" (from the cloned repository above) that contains the "src" folder.
 Here, run
 
 ```shell
@@ -38,7 +46,7 @@ install .
 
 This will install MemBrain-seg and all dependencies required for segmenting your tomograms.
 
-## Step 4: Validate installation
+## Step 3: Validate installation
 As a first check whether the installation was successful, you can run
 ```shell
 membrain_pick
@@ -46,9 +54,9 @@ membrain_pick
 This should display the different options you can choose from MemBrain, like "segment" and "train", similar to the screenshot below:
 
 
-## Step 5: Install surforama
+## Step 4: Install surforama
 In order to visualize the results of MemBrain-pick, you can use surforama.
-However, the current official version of surforama has ome compatibility issues with the current version of MemBrain-pick. Therefore, it's best to install it via
+However, the current official version of surforama has some compatibility issues with the current version of MemBrain-pick. Therefore, it's best to install it via
 
 1. close repo https://github.com/LorenzLamm/surforama.git
 2. switch to branch "star_file_loading_adjustments"

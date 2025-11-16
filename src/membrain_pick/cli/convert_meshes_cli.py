@@ -22,7 +22,7 @@ def convert_single_file(
     ),
     input_pixel_size: float = Option(  # noqa: B008
         None,
-        help="Pixel size of the input tomogram. Only used if match_size_flag is True. If not provided, the pixel size will be read from the tomogram.",
+        help="Pixel size of the input tomogram. If not provided, the pixel size will be read from the tomogram.",
     ),
     step_numbers: List[int] = Option(  # noqa: B008
         (-10, 10),
@@ -91,7 +91,7 @@ def convert_mb_folder(
     ),
     input_pixel_size: float = Option(  # noqa: B008
         None,
-        help="Pixel size of the input tomogram. Only used if match_size_flag is True. If not provided, the pixel size will be read from the tomogram.",
+        help="Pixel size of the input tomogram. If not provided, the pixel size will be read from the tomogram.",
     ),
     step_numbers: List[int] = Option(  # noqa: B008
         (-10, 10),

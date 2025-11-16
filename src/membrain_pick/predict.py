@@ -91,6 +91,7 @@ def predict(
     N_block: int = 4,
     C_width: int = 64,
     conv_width: int = 32,
+    one_D_conv_first: bool = True,
     # Mean shift parameters
     mean_shift_output: bool = False,
     mean_shift_bandwidth: float = 7.0,
@@ -142,7 +143,7 @@ def predict(
         conv_width=conv_width,
         # C_in=10,
         C_in=16,
-        one_D_conv_first=True,
+        one_D_conv_first=one_D_conv_first,
     )
     model.to(device)
     model.eval()

@@ -47,6 +47,7 @@ The following options are available:
 - `--input-pixel-size`: Pixel size of the tomogram. (default: `10.0`)
 - `--device`: Device to use. (default: `cuda:0`)
 - `--max-epochs`: Maximum number of epochs. (default: `200`)
+- `--num-workers`: Number of workers for the DataLoader. (default: `None`)
 - `--help`: Show this message and exit.
 
 
@@ -70,20 +71,20 @@ Some of these are rather experimental and should be used with caution.
 
 Options:
 - `--position-tokens`: Tokens for the positions, as they are also specified in the _rlnClassNumber column of the GT star file. If columns are not present, the tokens are ignored and all positions used. (default: `None`)
-- `--augment-all`: Should all data augmentations be used? (default: `augment-all`)
+- `--augment-all`: Should data augmentations be used? Strongly recommended, but can also distort some densities. (default: `augment-all`)
 - `--aug-prob-to-one`: Should the probability be set to one (strong augmentations)? (default: `aug-prob-to-one`)
-- `--k-eig`: Number of eigenvectors. (default: `128`)
-- `--n-block`: Number of blocks. (default: `4`)
-- `--c-width`: Width of the convolution. (default: `16`)
-- `--conv-width`: Width of the convolution. (default: `16`)
-- `--dropout`: Should dropout be used? (default: `no-dropout`)
+- `--k-eig`: Number of eigenvectors. Higher values lead to better network expressivity, but can also lead to higher compute times and overfitting. (default: `128`)
+- `--n-block`: Number of DiffusionNet blocks. (default: `4`)
+- `--c-width`: Number of channels in diffusion linear layers. (default: `16`). Important to match the number chosen during training.
+- `--conv-width`: Width of the 1D convolution in the separable convolution layer. (default: `16`). Important to match the number chosen during training.
+- `--dropout`: Should dropout be used in the linear layers? (default: `no-dropout`)
 - `--with-gradient-features`: Should the gradient features be used? (default: `with-gradient-features`)
 - `--with-gradient-rotations`: Should the gradient rotations be used? (default: `with-gradient-rotations`)
 - `--one-d-conv-first`: Should 1D convolution be used first? (default: `one-d-conv-first`)
-- `--mean-shift-output`: Should the output be mean shifted and loss be computed on the clustering performance? (default: `no-mean-shift-output`)
-- `--mean-shift-bandwidth`: Bandwidth for the mean shift. (default: `7.0`)
-- `--mean-shift-max-iter`: Maximum number of iterations for the mean shift. (default: `10`)
-- `--mean-shift-margin`: Margin for the mean shift. (default: `2.0`)
+- `--mean-shift-output`: [Highly experimental] Should the output be mean shifted and loss be computed on the clustering performance? (default: `no-mean-shift-output`)
+- `--mean-shift-bandwidth`: [Highly experimental] Bandwidth for the mean shift. (default: `7.0`)
+- `--mean-shift-max-iter`: [Highly experimental] Maximum number of iterations for the mean shift. (default: `10`)
+- `--mean-shift-margin`: [Highly experimental] Margin for the mean shift. (default: `2.0`)
 
 If mean shift is used, the loss is computed after the clustering. This can be useful in very crowded areas, and can also deal with label sparsity. However, efficiency is reduced. This feature is **highly** experimental and should be used with caution.
 

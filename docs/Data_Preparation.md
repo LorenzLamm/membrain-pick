@@ -57,10 +57,14 @@ This command will generate mesh representations of the membrane segmentations an
 - `--mb-folder` (TEXT, required): Path to the folder containing the membrane segmentations. [default: None] 
 - `--tomo-path` (TEXT, required): Path to the tomogram to be projected. [default: None] 
 - `--out-folder` (TEXT): Path to the folder where mesh projections should be stored. [default: ./mesh_data] 
+- `--input-pixel-size` (FLOAT): Pixel size of the input tomogram. If not provided, the pixel size will be read from the tomogram (can be false).
 - `--step-numbers` (INTEGER): Step numbers for the normal vectors. [default: (-10, 10)] 
 - `--step-size` (FLOAT): Step size for the normal vectors. [default: 2.5] 
 - `--mesh-smoothing` (INTEGER): Smoothing factor for the mesh. [default: 1000] 
 - `--barycentric-area` (FLOAT): Barycentric area for the mesh. [default: 400.0] 
+- `--imod-meshing / --no-imod-meshing` Should the mesh be generated using IMOD? WARNING: This is highly experimental and IMOD needs to be installed. [default: no-imod-meshing]
+- `--pymeshlab-meshing / --no-pymeshlab-meshing` Should the mesh be generated using PyMeshLab? WARNING: This is highly experimental and PyMeshlab needs to be installed [default: no-pymeshlab-meshing] 
+- `--only-largest-component / --no-only-largest-component` Should only the largest connected component be meshed? Otherwise it will process all connected components [default: only-largest-component] 
 
 Note: options may change faster than these docs. You can check the available options by running `membrain_pick convert_mb_folder`.
 
@@ -77,7 +81,6 @@ This command will generate a mesh representation of the membrane segmentation an
 #### More Options
 
 Other options are similar to the `convert_mb_folder` command. You can check the available options by running `membrain-pick convert_file`.
-
 
 ### Outputs
 The output of this step is a set of data containers which contain all necessary information about the meshes, e.g.

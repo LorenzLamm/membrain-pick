@@ -17,7 +17,7 @@ def surforama(
         help="Path to the tomogram to be projected",
     ),
     normal_offset: float = Option(  # noqa: B008
-        0.0, help="Offset for the normal vectors."
+        0.0, help="Offset for the normal vectors for displaying projected densities."
     ),
     normal_offset_points: float = Option(  # noqa: B008
         0.0, help="Offset along the normal vector for loaded points."
