@@ -99,6 +99,7 @@ def train_advanced(
     input_pixel_size: float = Option(  # noqa: B008
         10.0, help="Pixel size of the tomogram."
     ),
+    max_distance: float = Option(10.0, help="Maximum distance for GT distance map."),  # noqa: B008
     k_eig: int = Option(128, help="Number of eigenvectors."),  # noqa: B008
     N_block: int = Option(4, help="Number of blocks."),  # noqa: B008
     C_width: int = Option(16, help="Width of the convolution."),  # noqa: B008
@@ -155,6 +156,7 @@ def train_advanced(
         augment_all=augment_all,
         aug_prob_to_one=aug_prob_to_one,
         input_pixel_size=input_pixel_size,
+        max_distance=max_distance,
         k_eig=k_eig,
         N_block=N_block,
         C_width=C_width,

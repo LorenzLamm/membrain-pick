@@ -20,7 +20,13 @@ def surforama(
     normal_offset: float = Option(  # noqa: B008
         0.0, help="Offset for the normal vectors."
     ),
+    normal_offset_points: float = Option(  # noqa: B008
+        0.0, help="Offset along the normal vector for loaded points."
+    ),
     point_size: float = Option(5.0, help="Size of the points."),  # noqa: B008
+    color_by: List[str] = Option(  # noqa: B008
+        ["scores"], help="List of score names to color by."
+    ),
     return_viewer: bool = Option(  # noqa: B008
         False, help="Should the viewer be returned?"
     ),
@@ -44,6 +50,7 @@ def surforama(
         initialize_surforama_widget,
         display_surforama_without_widget,
         display_input_normal_values,
+        get_min_max_per_score
     )
 
     viewer = napari.Viewer(ndisplay=3)
@@ -57,6 +64,9 @@ def surforama(
     else:
         mesh_files = [h5_path]
 
+    
+    min_max_per_score = get_min_max_per_score(mesh_files, color_by)
+
     for h5_nr, h5_path in enumerate(mesh_files):
         mesh_data = load_mesh_from_hdf5(h5_path)
 
@@ -65,21 +75,21 @@ def surforama(
             pixel_size = get_pixel_size(mesh_data, None)
 
         points, faces = get_points_and_faces(mesh_data, pixel_size)
-        display_scores(viewer, mesh_data, points, faces)
+        display_scores(viewer, mesh_data, points, faces, color_by=color_by, min_max_per_score=min_max_per_score)
 
         if h5_nr == 0:
             surforama_widget = initialize_surforama_widget(
                 points, faces, volume_layer, viewer, normal_offset=normal_offset
             )
             display_cluster_centers(
-                viewer, mesh_data, pixel_size, surforama_widget, point_size=point_size
+                viewer, mesh_data, pixel_size, surforama_widget, point_size=point_size, normal_offset_points=normal_offset_points
             )
         else:
             value_range = display_surforama_without_widget(
                 viewer, points, faces, value_range, normal_offset=normal_offset
             )
             display_cluster_centers_as_points(
-                viewer, mesh_data, pixel_size, point_size=point_size
+                viewer, mesh_data, pixel_size, point_size=point_size, normal_offset_points=normal_offset_points
             )
 
         if h5_nr == 0:

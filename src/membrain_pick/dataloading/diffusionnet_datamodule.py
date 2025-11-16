@@ -51,6 +51,7 @@ class MemSegDiffusionNetDataModule(pl.LightningDataModule):
         augment_all: bool = True,
         aug_prob_to_one: bool = False,
         input_pixel_size: float = 10.0,
+        max_distance: float = 10.0,
         k_eig: int = 128,
         batch_size: int = 1,
         num_workers: int = 16,
@@ -70,6 +71,7 @@ class MemSegDiffusionNetDataModule(pl.LightningDataModule):
         self.augment_all = augment_all
         self.input_pixel_size = input_pixel_size
         self.aug_prob_to_one = aug_prob_to_one
+        self.max_distance = max_distance
 
         self.position_tokens = position_tokens
 
@@ -99,6 +101,7 @@ class MemSegDiffusionNetDataModule(pl.LightningDataModule):
                     augment_all=self.augment_all,
                     aug_prob_to_one=self.aug_prob_to_one,
                     input_pixel_size=self.input_pixel_size,
+                    max_distance=self.max_distance,
                     k_eig=self.k_eig,
                 )
             if self.val_dataset is None:
@@ -114,6 +117,7 @@ class MemSegDiffusionNetDataModule(pl.LightningDataModule):
                     position_tokens=self.position_tokens,
                     augment_all=self.augment_all,
                     input_pixel_size=self.input_pixel_size,
+                    max_distance=self.max_distance,
                     k_eig=self.k_eig,
                 )
             self.parameter_len = self.train_dataset.get_parameter_len()
@@ -132,6 +136,7 @@ class MemSegDiffusionNetDataModule(pl.LightningDataModule):
                     position_tokens=self.position_tokens,
                     augment_all=self.augment_all,
                     input_pixel_size=self.input_pixel_size,
+                    max_distance=self.max_distance,
                     k_eig=self.k_eig,
                 )
 

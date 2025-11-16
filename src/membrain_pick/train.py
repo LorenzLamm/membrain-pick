@@ -38,6 +38,7 @@ def train(
     augment_all: bool = True,
     aug_prob_to_one: bool = False,
     input_pixel_size: float = 10.0,
+    max_distance: float = 10.0,
     k_eig: int = 128,
     # Model parameters
     N_block: int = 6,
@@ -80,6 +81,7 @@ def train(
         augment_all=augment_all,
         aug_prob_to_one=aug_prob_to_one,
         input_pixel_size=input_pixel_size,
+        max_distance=max_distance,
         position_tokens=position_tokens,
         k_eig=k_eig,
         batch_size=1,
