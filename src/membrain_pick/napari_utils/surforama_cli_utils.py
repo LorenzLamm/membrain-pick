@@ -5,6 +5,7 @@ from matplotlib.pyplot import get_cmap
 from membrain_seg.segmentation.dataloading.data_utils import load_tomogram
 from surforama.app import QtSurforama
 from membrain_pick.napari_utils.scalar_selection import ScalarSelectionWidget
+from membrain_pick.dataloading.data_utils import load_mesh_from_hdf5
 
 from surforama.gui.qt_point_io import QtPointIO
 from surforama.constants import (
@@ -16,6 +17,27 @@ from surforama.constants import (
     NAPARI_UP_2,
     ROTATION,
 )
+
+def get_min_max_per_score(mesh_files, color_by):
+    min_max_dict = {}
+    for h5_path in mesh_files:
+        mesh_data = load_mesh_from_hdf5(h5_path)
+        for score_name in color_by:
+            scores = mesh_data[score_name]
+            current_min = np.nanmin(scores)
+            current_max = np.nanmax(scores)
+            if score_name not in min_max_dict:
+                min_max_dict[score_name] = [current_min, current_max]
+            else:
+                min_max_dict[score_name][0] = min(
+                    min_max_dict[score_name][0], current_min
+                )
+                min_max_dict[score_name][1] = max(
+                    min_max_dict[score_name][1], current_max
+                )
+    print("Min max per score:", min_max_dict)
+    return min_max_dict
+
 
 def normalize_tomo(tomogram):
     # cut off percentile from 10 to 90
@@ -79,28 +101,40 @@ def get_points_and_faces(mesh_data, pixel_size):
     return points, faces
 
 
-def display_scores(viewer, mesh_data, points, faces):
-    if "scores" in mesh_data.keys():
-        scores = mesh_data["scores"]
-        normalized_scores = scores / 10.0
-        normalized_scores[normalized_scores < 0] = 0
-        normalized_scores[normalized_scores > 1] = 1
-        normalized_scores = 1 - normalized_scores
-        cmap = get_cmap("RdBu")
-        colors = cmap(normalized_scores)[
-            :, :3
-        ]  # Get RGB values and discard the alpha channel
-        surface_layer = viewer.add_surface(
-            (points, faces), vertex_colors=colors, name="Scores", shading="none"
-        )
-
-
+def display_scores(viewer, mesh_data, points, faces, color_by=["scores"], min_max_per_score=None):
+    for score_name in color_by:
+        if score_name in mesh_data.keys():
+            if score_name not in mesh_data.keys():
+                print(f"Score {score_name} not found in mesh data.")
+                continue
+            scores = mesh_data[score_name]
+            if score_name == "scores":
+                normalized_scores = scores / 10.0
+            else:
+                min_score, max_score = min_max_per_score[score_name]
+                normalized_scores = (scores - min_score) / (
+                    max_score - min_score + np.finfo(float).eps
+                )
+                print("min max", normalized_scores.min(), normalized_scores.max())
+            normalized_scores[normalized_scores < 0] = 0
+            normalized_scores[normalized_scores > 1] = 1
+            normalized_scores = 1 - normalized_scores
+            cmap = get_cmap("RdBu")
+            colors = cmap(normalized_scores)[
+                :, :3
+            ]  # Get RGB values and discard the alpha channel
+            # for title, capitalize first letter
+            score_name = score_name.title()
+            surface_layer = viewer.add_surface(
+                (points, faces), vertex_colors=colors, name=score_name, shading="none"
+            )
 
 
 def initialize_points(
     point_io,
     point_coordinates,
     point_size=5.0,
+    normal_offset_points=0.0
 ):
     
 
@@ -116,6 +150,9 @@ def initialize_points(
         NAPARI_UP_2: up_data[:, 1, 2],
         ROTATION: np.zeros(normal_data.shape[0]) * 1.0,
     }
+
+    if normal_offset_points != 0.0:
+        point_coordinates = point_coordinates + normal_offset_points * normal_data[:, 1, :]
 
     # add the data to the viewer
     point_io.surface_picker.points_layer.data = point_coordinates
@@ -136,7 +173,7 @@ def initialize_points(
 
 
 def display_cluster_centers(
-    viewer, mesh_data, pixel_size, surforama_widget, point_size=5.0
+    viewer, mesh_data, pixel_size, surforama_widget, point_size=5.0, normal_offset_points=0.0
 ):
     if "cluster_centers" in mesh_data.keys():
         cluster_centers = mesh_data["cluster_centers"] / pixel_size
@@ -149,14 +186,26 @@ def display_cluster_centers(
                 point_io=point_io,
                 point_coordinates=cluster_centers,
                 point_size=point_size,
+                normal_offset_points=normal_offset_points
             )
             surforama_widget.picking_widget.enabled = False
 
 
-def display_cluster_centers_as_points(viewer, mesh_data, pixel_size, point_size=5.0):
+def display_cluster_centers_as_points(viewer, mesh_data, pixel_size, point_size=5.0, normal_offset_points=0.0):
     if "cluster_centers" in mesh_data.keys():
         cluster_centers = mesh_data["cluster_centers"] / pixel_size
+        if cluster_centers.shape[0] == 0:
+            return
         cluster_centers = np.stack(cluster_centers[:, [2, 1, 0]])
+        if normal_offset_points != 0.0:
+            verts, faces = mesh_data["points"], mesh_data["faces"]
+            mesh = trimesh.Trimesh(vertices=np.stack(verts[:, [2, 1, 0]]) / pixel_size, faces=faces)
+            
+            # find closest normals to cluster centers
+            proxy_query = trimesh.proximity.ProximityQuery(mesh)
+            closest_vertex_idcs = proxy_query.vertex(cluster_centers)[1]
+            closest_vert_normals = mesh.vertex_normals[closest_vertex_idcs]
+            cluster_centers = cluster_centers + normal_offset_points * closest_vert_normals
         points = viewer.add_points(
             cluster_centers,
             name="Cluster Centers",
@@ -222,7 +271,7 @@ def normalize_surface_values(surface_values, value_range=None):
 
 
 def display_surforama_without_widget(
-    viewer, points, faces, value_range=None, normal_offset=0.0
+    viewer, points, faces, value_range=None, normal_offset=0.0,
 ):
     tomo_data = viewer.layers["tomogram"].data
 
