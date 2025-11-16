@@ -45,6 +45,10 @@ def convert_single_file(
         False,
         help="Should the mesh be generated using PyMeshLab? WARNING: This is highly experimental.",
     ),
+    only_largest_component: bool = Option(  # noqa: B008
+        True,
+        help="Should only the largest connected component be meshed?",
+    ),
 ):
     """Convert a single membrane segmentation to a mesh.
 
@@ -69,6 +73,7 @@ def convert_single_file(
         input_pixel_size=input_pixel_size,
         imod_meshing=imod_meshing,
         pymeshlab_meshing=pymeshlab_meshing,
+        only_largest_component=only_largest_component,
     )
 
 
@@ -109,6 +114,10 @@ def convert_mb_folder(
         False,
         help="Should the mesh be generated using PyMeshLab? WARNING: This is highly experimental.",
     ),
+    only_largest_component: bool = Option(  # noqa: B008
+        True,
+        help="Should only the largest connected component be meshed?",
+    ),
 ):
     """Convert a folder of membrane segmentations to meshes.
 
@@ -131,4 +140,5 @@ def convert_mb_folder(
         input_pixel_size=input_pixel_size,
         imod_meshing=imod_meshing,
         pymeshlab_meshing=pymeshlab_meshing,
+        only_largest_component=only_largest_component,
     )

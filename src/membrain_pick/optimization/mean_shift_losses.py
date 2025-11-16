@@ -1,3 +1,10 @@
+"""
+Mean Shift Losses for MemBrain-pick
+
+This is still very experimental, but would be awesome to include into the model
+training at some point.
+"""
+
 import torch
 from torch.nn.functional import normalize
 
@@ -17,18 +24,12 @@ class MeanShift_loss(torch.nn.Module):
             if print_flag:
                 print(pos, pred_pos[torch.argmin(torch.cdist(pos.unsqueeze(0), pred_pos))], "true_pos and pred_pos")
         loss = torch.mean(mins) #+ .5 * torch.max(mins)
-        # loss = 0.
-        # loss = torch.max(mins)
         loss_seeds = torch.mean(mins_seeds) #+ .5 * torch.max(mins_seeds)
-        # loss_seeds = torch.max(mins_seeds)
-        # return 0., mins_seeds
-        just_in_case_losses = (loss, loss_seeds)
         if print_flag:
             print(loss, loss_seeds, "losses")
         if not self.use_loss:
-            return 0.#, mins_seeds, just_in_case_losses
-        # return loss_seeds, mins_seeds, just_in_case_losses
-        return loss + loss_seeds#, mins_seeds, just_in_case_losses
+            return 0.
+        return loss + loss_seeds
 
 class MeanShift_loss_directional(torch.nn.Module):
     def __init__(self):
@@ -46,12 +47,8 @@ class MeanShift_loss_directional(torch.nn.Module):
         dot_prod = torch.sum(dot_prod, axis=1)
         dot_prod = 1. - dot_prod
         dot_bkp = dot_prod.clone().detach().cpu()
-        dists_pred = torch.cdist(true_pos.float(), pred_pos.float())
-        dists_pred, _ = torch.min(dists_pred, dim=1)
-        dists_pred = dists_pred[0]
-        #dot_prod *= dists_pred
         dot_prod = torch.mean(dot_prod)
 
-        loss = dot_prod #+ torch.mean(dists_pred)
+        loss = dot_prod 
 
         return loss, dot_bkp.unsqueeze(0)

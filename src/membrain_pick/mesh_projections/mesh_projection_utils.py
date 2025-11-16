@@ -35,6 +35,7 @@ def get_cropped_arrays(seg, tomo, expansion=20):
 def face_coords(verts, faces):
     coords = verts[faces]
     return coords
+
 def cross(vec_A, vec_B):
     return np.cross(vec_A, vec_B, axis=-1)
 

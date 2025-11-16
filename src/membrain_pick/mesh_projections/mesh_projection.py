@@ -152,8 +152,6 @@ def save_mesh_data(
     mesh = Mesh(points, faces + 1)
     mesh.store_in_file(out_file_base + ".obj")
 
-    # precompute spectrals and partitioning
-
 
 def convert_to_mesh(
     mb_file: str,

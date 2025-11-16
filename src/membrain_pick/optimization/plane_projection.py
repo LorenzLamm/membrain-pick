@@ -11,7 +11,6 @@ from matplotlib import pyplot as plt
 from sklearn.neighbors import KDTree
 
 
-
 def project_points_to_nearest_hyperplane(points, candiate_points):
     print("Projecting points to nearest hyperplane.")
     # Find nearest three points for each point
@@ -103,39 +102,3 @@ def make_2D_projection_scatter_plot(out_file, point_cloud, color=None, s=7.5):
     plt.scatter(projected_points[:, 0], projected_points[:, 1], s=s, c=color, cmap="gray")
     plt.colorbar()
     plt.savefig(out_file)
-
-
-def get_sample_point_cloud(fraction=None):
-    from membrain_pick.dataloading.diffusionnet_dataset import MemSegDiffusionNetDataset
-    ds = MemSegDiffusionNetDataset(
-        csv_folder="/scicore/home/engel0006/GROUP/pool-engel/Lorenz/2D_projections/mesh_data",
-        load_only_sampled_points=fraction,
-        mesh_data=True,
-        overfit_mb=(True if not fraction else False),
-        overfit=(True if fraction else False)
-    )
-    return ds
-
-
-def test():
-    from matplotlib import pyplot as plt
-    from membrain_pick.dataloading.diffusionnet_dataset import MemSegDiffusionNetDataset
-    ds = get_sample_point_cloud(fraction=1000)
-    sample_idx = 2
-    membrane_data = ds[sample_idx]["membrane"][0]
-    labels = ds[sample_idx]["label"][0]
-
-    mask = labels <= 10.
-    membrane_data = membrane_data[mask]
-    labels = labels[mask]
-
-    vertices = membrane_data[:, :3]
-    normal_vector, point_in_plane = find_best_fit_plane(vertices)
-    projected_points = project_and_rotate_points(vertices, normal_vector, point_in_plane)
-    out_file = "/scicore/home/engel0006/GROUP/pool-engel/Lorenz/2D_projections/mesh_tests/projection_test.png"
-    plt.figure()
-    plt.scatter(projected_points[:, 0], projected_points[:, 1], s=150, c=membrane_data[:,9], cmap="gray")
-    plt.savefig(out_file)
-
-if __name__ == "__main__":
-    test()

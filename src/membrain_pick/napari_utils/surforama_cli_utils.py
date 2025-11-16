@@ -7,7 +7,6 @@ from surforama.app import QtSurforama
 from membrain_pick.napari_utils.scalar_selection import ScalarSelectionWidget
 from membrain_pick.dataloading.data_utils import load_mesh_from_hdf5
 
-from surforama.gui.qt_point_io import QtPointIO
 from surforama.constants import (
     NAPARI_NORMAL_0,
     NAPARI_NORMAL_1,
@@ -63,7 +62,6 @@ def display_tomo(viewer, mesh_data, tomogram_path):
     volume_layer = None
     if tomogram_path != "":
         tomogram = load_tomogram(tomogram_path)
-        pixel_size = tomogram.voxel_size.x
         tomogram = tomogram.data
         tomogram = normalize_tomo(tomogram)
         tomogram = np.transpose(tomogram, (2, 1, 0))
