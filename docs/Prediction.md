@@ -35,8 +35,9 @@ This command will predict the output of the trained model on the given data. The
 - `--input-pixel-size`: Pixel size of the tomogram. (default: `10.0`)
 - `--force-recompute-partitioning`: Should the partitioning be recomputed? (default: `no-force-recompute-partitioning`)
 - `--n-block`: Number of blocks. (default: `4`). Important to match the number chosen during training.
-- `--c-width`: Width of the convolution. (default: `16`). Important to match the number chosen during training.
-- `--conv-width`: Width of the convolution. (default: `16`). Important to match the number chosen during training.
+- `--c-width`: Number of channels in diffusion linear layers. (default: `16`). Important to match the number chosen during training.
+- `--conv-width`: Width of the 1D convolution in the separable convolution layer. (default: `16`). Important to match the number chosen during training.
+- `--one-d-conv-first`: Should 1D convolution be used first? (default: `one-d-conv-first`)
 - `--k-eig`: Number of eigenvectors. (default: `128`). Important to match the number chosen during training.
 - `--mean-shift-output`: Should the output be clustered? (default: `mean-shift-output`)
 - `--mean-shift-bandwidth`: Bandwidth for the mean shift. (default: `7.0`)

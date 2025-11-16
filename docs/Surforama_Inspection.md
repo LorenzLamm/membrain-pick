@@ -15,8 +15,10 @@ This will automatically start Napari with the membrane meshes and projected tomo
 ### More options:
 - `--h5-path` (TEXT, required): Path to the h5 container. [default: None]
 - `--tomogram-path` (TEXT): Path to the tomogram to be projected (overwrites the path in the h5 container). [default: None]
-- `--normal-offset` (FLOAT): Offset for the normal vectors. [default: 0.0]
+- `--normal-offset` (FLOAT): Offset for the normal vectors for displaying projected densities. [default: 0.0]
+- `--normal-offset-points` (FLOAT): Offset along the normal vectors for the predicted positions. [default: 0.0]
 - `--point-size` (FLOAT): Size of the points. [default: 5.0]
+- `--color-by` (TEXT): List of score names to color by. You can pass multiple different properties (e.g. Morphometrics properties) by passing this flag multiple times in the same command. [default: "scores"]
 
 ### Pro Tip:
 If you run the command with `h5-path` pointing to a directory, all h5 files in that directory will be loaded into surforama.
@@ -90,5 +92,4 @@ By default, the surforama view is loaded together with the predicted positions. 
 </div>
 
 
-https://private-user-images.githubusercontent.com/34575029/398803859-0df51395-d939-4b1f-8fcc-75db42865fc5.png?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3MzYxMDEzODEsIm5iZiI6MTczNjEwMTA4MSwicGF0aCI6Ii8zNDU3NTAyOS8zOTg4MDM4NTktMGRmNTEzOTUtZDkzOS00YjFmLThmY2MtNzVkYjQyODY1ZmM1LnBuZz9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNTAxMDUlMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjUwMTA1VDE4MTgwMVomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPWRkOTMwM2RlMzlmNTY2Mjk2ZWYxMzI2ZDQxOWMyZGEyMjYwMGRlYTJlOGQyMDUwM2RjYTU2ODYyZmEyOTViZGUmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0In0.6cc5AMQlIRSEBeAqS-z6BSCKAH8l4bz_kNw1BcBAzIY
 If desired, you can now alter the positions of the predicted particles as described in the previous section, and save the altered positions as a RELION-type .star file. With these new positions, you can either train a more refined model or use them for further analysis.

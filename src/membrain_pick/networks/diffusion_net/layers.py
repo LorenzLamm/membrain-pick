@@ -611,7 +611,6 @@ class DiffusionNet(nn.Module):
         # Apply the first linear layer
         if self.one_D_conv_first:
             x = self.conv_block(x_in, mass, L, evals, evecs, gradX, gradY)
-            # x = self.conv_block2(x, mass, L, evals, evecs, gradX, gradY)
             x = self.first_lin(x)
         else:
             x = self.first_lin(x_in)

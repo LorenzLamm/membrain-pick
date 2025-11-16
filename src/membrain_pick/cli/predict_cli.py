@@ -24,6 +24,9 @@ def predict(
     N_block: int = Option(4, help="Number of blocks."),  # noqa: B008
     C_width: int = Option(16, help="Number of channels in diffusion linear layers."),  # noqa: B008
     conv_width: int = Option(16, help="Width of the 1D convolution in the separable convolution layer."),  # noqa: B008
+    one_D_conv_first: bool = Option(  # noqa: B008
+        True, help="Should 1D convolution be used first?"
+    ),
     k_eig: int = Option(128, help="Number of eigenvectors."),  # noqa: B008
     mean_shift_output: bool = Option(  # noqa: B008
         True, help="Should the output be mean shifted?"
@@ -73,6 +76,7 @@ def predict(
         N_block=N_block,
         C_width=C_width,
         conv_width=conv_width,
+        one_D_conv_first=one_D_conv_first,
         mean_shift_output=mean_shift_output,
         mean_shift_bandwidth=mean_shift_bandwidth,
         mean_shift_max_iter=mean_shift_max_iter,
