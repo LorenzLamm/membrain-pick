@@ -38,6 +38,7 @@ class MemSegDiffusionNetDataset(Dataset):
         data_folder: str,
         train: bool = False,
         train_pct: float = 0.8,
+        max_distance: float = 10.0,
         load_only_sampled_points: int = None,
         overfit: bool = False,
         is_single_mb: bool = False,
@@ -78,6 +79,7 @@ class MemSegDiffusionNetDataset(Dataset):
         self.augment_all = augment_all
         self.input_pixel_size = input_pixel_size
         self.process_pixel_size = 15.0  # hard-coded for now
+        self.max_distance = max_distance
 
         self.diffusion_operator_params = diffusion_operator_params
         self.position_tokens = position_tokens
@@ -191,10 +193,11 @@ class MemSegDiffusionNetDataset(Dataset):
                 "gt_pos": self.gt_pos[idx],
                 "vert_weights": np.ones(self.membranes[idx].shape[0]),
             }
-
+        orig_mb = idx_dict["membrane"].copy()
         idx_dict = self.transforms(
             idx_dict, keys=["membrane"], mb_tree=self.kdtrees[idx]
         )
+        idx_dict["membrane_orig"] = orig_mb
         if self.shuffle and self.train:
             assert idx_dict["membrane"].shape[1] >= 16 + 3
             feature_channels = idx_dict["membrane"][:, 3:].shape[1] - 16
@@ -340,8 +343,8 @@ class MemSegDiffusionNetDataset(Dataset):
             angle_to_normal = np.einsum("ij,ij->i", connection_vectors, vert_normals)
             mask = angle_to_normal < 0
 
-            distances[distances > 10] = 10
-            distances[mask] = 10.05
+            distances[distances > self.max_distance] = self.max_distance
+            distances[mask] = self.max_distance + 0.05
             points[:, :3] /= self.max_tomo_shape
             points[:, :3] *= self.process_pixel_size
             gt_pos /= self.max_tomo_shape
@@ -381,7 +384,6 @@ class MemSegDiffusionNetDataset(Dataset):
             if not self.is_single_mb
             else [self.data_folder]
         )
-
         # Find all .h5 files in the data folder
         for filename in candidate_files:
             # if not "mem08" in filename:
