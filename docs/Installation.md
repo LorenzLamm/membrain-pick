@@ -21,6 +21,12 @@ conda activate <env_name>
 ```
 
 ## Step 2: Installation via PyPI (Option 1, recommended)
+The easiest way to install MemBrain-pick and its dependencies (except for surforama, see below)
+is to type
+```shell
+pip install membrain-pick
+```
+This should install MemBrain-pick directly from PyPI.
 
 
 ## Step 2 alternative: Installation via cloning our repository (Option 2, recommended)
