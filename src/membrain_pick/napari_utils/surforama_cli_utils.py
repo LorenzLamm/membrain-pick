@@ -22,6 +22,9 @@ def get_min_max_per_score(mesh_files, color_by):
     for h5_path in mesh_files:
         mesh_data = load_mesh_from_hdf5(h5_path)
         for score_name in color_by:
+            if not score_name in mesh_data.keys():
+                print(f"Score {score_name} not found in mesh data.")
+                continue
             scores = mesh_data[score_name]
             current_min = np.nanmin(scores)
             current_max = np.nanmax(scores)
@@ -102,9 +105,6 @@ def get_points_and_faces(mesh_data, pixel_size):
 def display_scores(viewer, mesh_data, points, faces, color_by=["scores"], min_max_per_score=None):
     for score_name in color_by:
         if score_name in mesh_data.keys():
-            if score_name not in mesh_data.keys():
-                print(f"Score {score_name} not found in mesh data.")
-                continue
             scores = mesh_data[score_name]
             if score_name == "scores":
                 normalized_scores = scores / 10.0
